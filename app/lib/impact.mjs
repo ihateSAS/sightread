@@ -58,6 +58,11 @@ async function walkFiles(root) {
   return out;
 }
 
+/** File inventory only: same walk, no file reads. Cheap enough for a repo picker. */
+export async function listSourceFiles(repoPath) {
+  return walkFiles(repoPath);
+}
+
 const JS_IMPORT = /(?:^\s*import[^'"]*from\s+["']([^"']+)["'])|(?:require\(\s*["']([^"']+)["']\s*\))|(?:import\(\s*["']([^"']+)["']\s*\))/gm;
 const PY_FROM = /^\s*from\s+([\w.]+)\s+import\s/gm;
 const PY_IMPORT = /^\s*import\s+([\w.]+)/gm;

@@ -1011,11 +1011,16 @@ async function loadRepos() {
   lbl.textContent = "Ready";
   host.appendChild(lbl);
 
-  data.repos.forEach((r, idx) => {
+  // The smallest repo is often this one, which is the least honest first
+  // impression of what the parser can map. Open on the largest instead.
+  const ordered = [...data.repos].sort((a, b) => (b.files || 0) - (a.files || 0));
+
+  ordered.forEach((r) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "chip-btn";
+    btn.className = "chip-btn" + (r.path === currentRepo ? " active" : "");
     btn.textContent = r.name;
+    btn.title = `${r.files || 0} source files`;
     // the resolved path stays internal: the field is where you paste a URL,
     // not where we print someone's home directory
     btn.addEventListener("click", () => {
@@ -1028,6 +1033,13 @@ async function loadRepos() {
     });
     host.appendChild(btn);
   });
+
+  const first = ordered[0];
+  if (!currentRepo && first) {
+    currentRepo = first.path;
+    host.querySelector(".chip-btn")?.classList.add("active");
+    setStatus(`using ${first.name}`);
+  }
 }
 
 $("repo").addEventListener("input", () => {
@@ -1586,8 +1598,7 @@ $("race-go").addEventListener("click", async () => {
 });
 
 loadHealth();
-loadRepos();
-loadImpact();
+loadRepos().then(() => loadImpact());
 </script>
 </body>
 </html>

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { loadEnv } from "./lib/env.mjs";
 import { listAvailableRepos, prepareRepo, readCitedFile, runCommand } from "./lib/repo.mjs";
 import { getRaceState, runRaceStream } from "./lib/race.mjs";
-import { buildImportGraph, impactOf, hottestFiles } from "./lib/impact.mjs";
+import { buildImportGraph, impactOf, hottestFiles, listSourceFiles } from "./lib/impact.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(HERE, "..");
@@ -352,7 +352,15 @@ export function createAppServer({ projectRoot = PROJECT_ROOT, reposDir = REPOS, 
 
       if (req.method === "GET" && url.pathname === "/api/repos") {
         const repos = await listAvailableRepos(projectRoot, reposDir);
-        return json(res, 200, { repos });
+        // Source counts let the picker open on the repo with the most to show,
+        // instead of whichever entry happens to be first in the directory.
+        const sized = await Promise.all(
+          repos.map(async (repo) => ({
+            ...repo,
+            files: (await listSourceFiles(repo.path).catch(() => [])).length,
+          }))
+        );
+        return json(res, 200, { repos: sized });
       }
 
       if (req.method === "GET" && url.pathname === "/api/file") {
