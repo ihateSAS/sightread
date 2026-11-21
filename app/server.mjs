@@ -129,6 +129,26 @@ function getConfig() {
   };
 }
 
+// A failed turn must not cost a process start. These two checks cover the
+// failures we actually hit: no key, or a model OpenClaw has never heard of.
+function cerebrasKeyProblem(cfg) {
+  if (!/^cerebras\//i.test(cfg.model)) return null;
+  if (process.env.CEREBRAS_API_KEY) return null;
+  return {
+    error: `CEREBRAS_API_KEY is not set, so ${cfg.model} cannot run. No turn was started.`,
+    hint: "Add CEREBRAS_API_KEY to .env, restart the server, then retry.",
+  };
+}
+
+async function probeCerebrasModel(cfg) {
+  const r = await runCommand(cfg.agentBinary, ["config", "get", "models.providers.cerebras"]);
+  if (r.code === -1) return { present: null };
+  const text = `${r.stdout || ""}\n${r.stderr || ""}`;
+  const leaf = String(cfg.model).split("/").pop();
+  const escaped = leaf.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return { present: new RegExp(`(^|[^A-Za-z0-9_-])${escaped}([^A-Za-z0-9_-]|$)`).test(text) };
+}
+
 function json(res, code, body) {
   const payload = JSON.stringify(body);
   res.writeHead(code, {
@@ -303,7 +323,32 @@ async function askViaGateway(cfg, repoPath, question, thinking, sessionId, evide
   };
 }
 
-export function createAppServer({ projectRoot = PROJECT_ROOT, reposDir = REPOS, publicDir = PUBLIC } = {}) {
+export function createAppServer({
+  projectRoot = PROJECT_ROOT,
+  reposDir = REPOS,
+  publicDir = PUBLIC,
+  modelProbe = probeCerebrasModel,
+} = {}) {
+  // Model registration changes only when someone patches OpenClaw, so the CLI
+  // probe is cached instead of paid on every ask.
+  let modelCheck = null;
+  const checkModel = async (cfg) => {
+    const now = Date.now();
+    if (modelCheck && modelCheck.model === cfg.model && now - modelCheck.at < 5 * 60_000) {
+      return modelCheck;
+    }
+    const result = await modelProbe(cfg).catch(() => ({ present: null }));
+    modelCheck = { at: now, model: cfg.model, ...(result || { present: null }) };
+    return modelCheck;
+  };
+
+  // Warm the probe so the first blocked ask answers from cache instead of
+  // paying the CLI start itself.
+  const bootCfg = getConfig();
+  if (process.env.CEREBRAS_API_KEY && /^cerebras\//i.test(bootCfg.model)) {
+    checkModel(bootCfg).catch(() => {});
+  }
+
   return createServer(async (req, res) => {
     const cfg = getConfig();
     try {
@@ -403,6 +448,29 @@ export function createAppServer({ projectRoot = PROJECT_ROOT, reposDir = REPOS, 
         const target = resolve(repo || projectRoot);
         const isDir = await stat(target).then((s) => s.isDirectory()).catch(() => false);
         if (!isDir) return json(res, 400, { error: `not a directory: ${target}` });
+
+        const blocked = cerebrasKeyProblem(cfg);
+        if (blocked) {
+          return json(res, 400, {
+            ok: false,
+            error: blocked.error,
+            hint: blocked.hint,
+            configuredModel: cfg.model,
+            impactDisabled: rawImpact === false,
+          });
+        }
+        if (/^cerebras\//i.test(cfg.model)) {
+          const probe = await checkModel(cfg);
+          if (probe.present === false) {
+            return json(res, 400, {
+              ok: false,
+              error: `OpenClaw has no model ${cfg.model}, so the turn cannot start.`,
+              hint: "Apply ./openclaw/kimi-cerebras.patch.json5, restart the gateway, then retry.",
+              configuredModel: cfg.model,
+              impactDisabled: rawImpact === false,
+            });
+          }
+        }
 
         const useGateway =
           cfg.transport === "gateway" ||

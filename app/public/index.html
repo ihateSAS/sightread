@@ -1303,7 +1303,10 @@ function paintResult(data) {
   $("proof").style.display = "none";
   $("answer-layout").classList.remove("with-proof");
 
-  $("s-time").textContent = data.elapsedMs != null ? (data.elapsedMs / 1000).toFixed(2) + "s" : "–";
+  // A failed turn has no meaningful wall clock: it measures process start, not
+  // an answer, so show a dash instead of a number that reads as latency.
+  const failed = data.ok === false || Boolean(data.error);
+  $("s-time").textContent = !failed && data.elapsedMs != null ? (data.elapsedMs / 1000).toFixed(2) + "s" : "–";
   $("s-turns").textContent = data.assistantTurns ?? "–";
   $("s-tools").textContent = data.toolSummary?.calls ?? "–";
   if (data.usage?.output && data.elapsedMs) {

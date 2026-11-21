@@ -127,3 +127,53 @@ test("HTTP server serves UI, health, repos, file inspection, and validates input
   const raceJson = await raceState.json();
   assert.ok("cerebras" in raceJson && "openrouter" in raceJson);
 });
+
+test("ask fails fast when the Cerebras key or model is missing", async (t) => {
+  const prevKey = process.env.CEREBRAS_API_KEY;
+  const prevModel = process.env.SIGHTREAD_MODEL;
+  process.env.SIGHTREAD_MODEL = "cerebras/kimi-k3.1-pro";
+  delete process.env.CEREBRAS_API_KEY;
+
+  let probes = 0;
+  const server = createAppServer({
+    projectRoot: PROJECT_ROOT,
+    reposDir: join(PROJECT_ROOT, "repos"),
+    modelProbe: async () => {
+      probes += 1;
+      return { present: false };
+    },
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  t.after(() => {
+    server.close();
+    if (prevKey === undefined) delete process.env.CEREBRAS_API_KEY;
+    else process.env.CEREBRAS_API_KEY = prevKey;
+    if (prevModel === undefined) delete process.env.SIGHTREAD_MODEL;
+    else process.env.SIGHTREAD_MODEL = prevModel;
+  });
+
+  const { port } = server.address();
+  const base = `http://127.0.0.1:${port}`;
+  const askOnce = () =>
+    fetch(`${base}/api/ask`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ repo: PROJECT_ROOT, question: "what breaks if I change lib/impact.mjs?" }),
+    });
+
+  const noKey = await askOnce();
+  assert.equal(noKey.status, 400);
+  const noKeyBody = await noKey.json();
+  assert.match(noKeyBody.error, /CEREBRAS_API_KEY/);
+  assert.ok(noKeyBody.hint);
+  assert.equal(noKeyBody.elapsedMs, undefined);
+  assert.equal(probes, 0, "no model probe without a key");
+
+  process.env.CEREBRAS_API_KEY = "csk-test-not-real";
+  const noModel = await askOnce();
+  assert.equal(noModel.status, 400);
+  const noModelBody = await noModel.json();
+  assert.match(noModelBody.error, /has no model/);
+  assert.equal(noModelBody.elapsedMs, undefined);
+  assert.equal(probes, 1);
+});
