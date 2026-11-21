@@ -600,7 +600,19 @@
   /* ---- change impact ---- */
   .impact { margin-top: 36px; }
   .impact h3 { margin: 0; font: 600 13px/1.3 var(--sans); color: var(--text); }
+  .impact-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .impact-meta { font: 500 11px/1.4 var(--mono); color: var(--dim); letter-spacing: 0.05em; }
   .impact-sub { margin: 6px 0 0; font: 400 12.5px/1.5 var(--sans); color: var(--dim); }
+  .method { margin: 16px 0 0; font: 400 13px/1.7 var(--sans); color: var(--dim); max-width: 62ch; }
+  .evidence {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 500 11.5px/1 var(--mono); color: var(--muted);
+    cursor: pointer; user-select: none;
+  }
+  .evidence input { accent-color: var(--accent); width: 13px; height: 13px; margin: 0; }
+  .evidence b { font-weight: 600; color: var(--text); }
+  .evidence.off b { color: #f0b445; }
+  .note { font: 500 12.5px/1.6 var(--sans); color: var(--muted); margin: 0 0 14px; }
   .impact-hot { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 14px; }
   .impact-result { margin-top: 18px; }
   .impact-summary { font: 400 13px/1.6 var(--sans); color: var(--muted); margin: 0 0 10px; }
@@ -692,8 +704,12 @@
     <header class="hero">
       <h1>Ask a codebase<br /><em>anything.</em></h1>
       <p class="sub">
-        Every answer cites the exact file and line it came from, because a scoped
-        OpenClaw agent reads source files directly on Cerebras instead of guessing from fragments.
+        Ask a repository a question and every answer points at the exact file and line it used.
+        Ask what a change would break and you get a list computed from the imports, not predicted by the model.
+      </p>
+      <p class="method">
+        Sightread clones the repo, has a scoped OpenClaw agent read the files it needs on Cerebras,
+        and parses the import graph locally. No embeddings, no index to build, nothing to guess at.
       </p>
     </header>
 
@@ -730,6 +746,11 @@
             <button type="button" data-thinking="medium">medium</button>
             <button type="button" data-thinking="high">high</button>
           </div>
+          <label class="evidence" id="evidence-label" title="Off answers from the model alone, with no parsed imports in the prompt">
+            <input type="checkbox" id="evidence" checked />
+            <span>graph evidence</span>
+            <b id="evidence-state">on</b>
+          </label>
           <button id="session-toggle" class="chip-btn" type="button" style="display:none" title="Continue in the same OpenClaw session or start fresh">New turn</button>
         </div>
         <div class="row-right">
@@ -741,8 +762,11 @@
     <div class="history-bar" id="history-bar"></div>
 
     <section class="impact">
-      <h3>Change impact</h3>
-      <p class="impact-sub">Parsed from the real imports in this repository, not guessed. Pick a file to see what breaks if you touch it.</p>
+      <div class="impact-head">
+        <h3>Change impact</h3>
+        <span class="impact-meta" id="impact-meta">parsing imports…</span>
+      </div>
+      <p class="impact-sub">Computed from the imports in this repository. Pick a file, or ask about a change, to see everything downstream of it.</p>
       <div class="impact-hot" id="impact-hot"></div>
       <div class="impact-result" id="impact-result"></div>
     </section>
@@ -851,6 +875,7 @@ let thinkingEffort = "low";
 let lastSessionId = null;
 let useSessionFollowup = false;
 let historyItems = [];
+let useEvidence = true;
 let activeProofBtn = null;
 
 // ---- view switching ----
@@ -967,6 +992,9 @@ async function loadImpact(targetPath) {
   if (!data || data.error) { out.innerHTML = ""; return; }
 
   renderHot(data.hot);
+  if (data.stats) {
+    $("impact-meta").textContent = `${data.stats.files} files · ${data.stats.imports} imports parsed`;
+  }
   if (!targetPath) { out.innerHTML = ""; return; }
   renderImpactBody(data);
 }
@@ -1005,6 +1033,17 @@ async function loadRepos() {
 $("repo").addEventListener("input", () => {
   currentRepo = "";
   $("repo-chips").querySelectorAll(".chip-btn").forEach((b) => b.classList.remove("active"));
+});
+
+// ---- graph evidence toggle ----
+// Off means the ask prompt gets no computed impact block, so the answer is
+// whatever the model can work out from reading files. The panel keeps showing
+// the parsed graph, which is the whole point of the comparison.
+$("evidence").addEventListener("change", (e) => {
+  useEvidence = e.target.checked;
+  $("evidence-state").textContent = useEvidence ? "on" : "off";
+  $("evidence-label").classList.toggle("off", !useEvidence);
+  setStatus(useEvidence ? "graph evidence on" : "graph evidence off: the model answers alone");
 });
 
 // ---- prompt & thinking controls ----
@@ -1289,10 +1328,13 @@ function paintResult(data) {
     $("s-body").appendChild(errDiv);
     setStatus("failed");
   } else {
+    const note = data.impactDisabled
+      ? `<div class="note">Graph evidence off. This is the model answering alone, with no parsed imports in its prompt.</div>`
+      : "";
     const warn = data.modelMismatch
       ? `<div class="warn" role="status">Answered by <b>${esc(data.model)}</b>, not the configured <b>${esc(data.configuredModel || "model")}</b>. The fallback fired, so do not label this run with the primary.</div>`
       : "";
-    $("s-body").innerHTML = warn + renderMarkdown(data.final || "(empty response)");
+    $("s-body").innerHTML = note + warn + renderMarkdown(data.final || "(empty response)");
     setStatus(`${data.model} · ${data.usage?.output ?? 0} tokens out`);
   }
 }
@@ -1347,6 +1389,7 @@ async function ask() {
     thinking: thinkingEffort,
     sessionId: useSessionFollowup ? lastSessionId : null,
     impactPath: selectedImpactPath,
+    impact: useEvidence,
   });
   cancelAnimationFrame(raf);
   $("ask").disabled = false;

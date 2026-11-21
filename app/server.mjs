@@ -387,7 +387,7 @@ export function createAppServer({ projectRoot = PROJECT_ROOT, reposDir = REPOS, 
       }
 
       if (req.method === "POST" && url.pathname === "/api/ask") {
-        const { repo, question, thinking: rawThinking, sessionId, impactPath } = await readBody(req);
+        const { repo, question, thinking: rawThinking, sessionId, impactPath, impact: rawImpact } = await readBody(req);
         if (!question || !String(question).trim()) {
           return json(res, 400, { error: "question is required" });
         }
@@ -401,13 +401,18 @@ export function createAppServer({ projectRoot = PROJECT_ROOT, reposDir = REPOS, 
           (cfg.transport === "auto" && (await isGatewayReachable(cfg.gatewayPort)));
 
         // Evidence first, and only for change questions. Parsing is cached, so
-        // this costs well under a millisecond on a warmed repo.
+        // this costs well under a millisecond on a warmed repo. Passing
+        // impact:false answers from the model alone, which is what the demo
+        // needs to show the graph beating a guess.
+        const useImpact = rawImpact !== false;
         const impactStart = performance.now();
-        const evidence = await impactEvidence(
-          target,
-          String(question).trim(),
-          impactPath ? String(impactPath) : null
-        ).catch(() => null);
+        const evidence = useImpact
+          ? await impactEvidence(
+              target,
+              String(question).trim(),
+              impactPath ? String(impactPath) : null
+            ).catch(() => null)
+          : null;
         const impactMs = evidence ? Math.round(performance.now() - impactStart) : null;
 
         const result = useGateway
@@ -416,6 +421,8 @@ export function createAppServer({ projectRoot = PROJECT_ROOT, reposDir = REPOS, 
 
         result.impact = evidence;
         result.impactMs = impactMs;
+        result.impactDisabled = !useImpact;
+        result.impactUsed = Boolean(evidence);
         result.configuredModel = cfg.model;
         result.modelMismatch = modelMismatch(cfg.model, result.model);
         return json(res, result.ok ? 200 : 502, result);
@@ -440,6 +447,7 @@ export function createAppServer({ projectRoot = PROJECT_ROOT, reposDir = REPOS, 
         }
         const result = impactOf(graph, target);
         result.hot = hottestFiles(graph);
+        result.stats = { files: graph.files.length, imports: graph.imports, languages: graph.languages };
         return json(res, 200, result);
       }
 

@@ -118,6 +118,10 @@ test("HTTP server serves UI, health, repos, file inspection, and validates input
   });
   assert.equal(badAsk.status, 400);
 
+  const impact = await fetch(`${base}/api/impact?repo=${encodeURIComponent(demoRepo)}`).then((r) => r.json());
+  assert.equal(impact.stats.files, 1);
+  assert.equal(impact.stats.imports, 0);
+
   const raceState = await fetch(`${base}/api/race/state`);
   assert.equal(raceState.status, 200);
   const raceJson = await raceState.json();

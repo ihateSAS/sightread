@@ -32,9 +32,11 @@ on-screen values are known in advance. Total runtime 0:58, two seconds of slack.
 
 1. `npm run gateway` in one terminal, `npm start` in another. Open the health dot
    and confirm it reads warm, then close it.
-2. Select **expressjs/express**. Ask *"If I change lib/application.js, what breaks?"*
-   once and let it finish. **Do not reload the page after this.** The populated
-   panel is what the recording opens on.
+2. Select **expressjs/express**. Rehearse the question with **graph evidence off**
+   first, so you know what the model says and how long it takes. Then switch the
+   toggle back **on**, ask *"If I change lib/application.js, what breaks?"* and let it
+   finish. **Do not reload the page after this.** The populated panel is what the
+   recording opens on.
 3. Zoom the browser to 110 percent. Hide the bookmarks bar and any notification
    banner. No `.env`, no terminal with the key, no Discord in frame.
 4. Start the timer at 0:00 and record the whole viewport. Do not cut between beats;
@@ -44,22 +46,26 @@ on-screen values are known in advance. Total runtime 0:58, two seconds of slack.
 
 | Clock | On screen | Say | You do |
 |---|---|---|---|
-| **0:00–0:07** | Impact panel already populated for `lib/application.js`, summary reading `application.js · high risk · 1 direct, 99 indirect · showing 14 of 100` | "This is Express. Change one file, and a hundred others sit downstream." | Nothing. Let the number sit still for a beat before you talk. |
-| **0:07–0:13** | Repo picker on `expressjs/express`, hot chips `index.js 96`, `lib/utils.js 7` | "Sightread parsed all 142 files and 160 imports first. No model guessing." | Point at one chip, then at the panel. |
-| **0:13–0:26** | Question typed in the ask box: *If I change lib/application.js, what breaks?* | "I ask what a change to `lib/application.js` actually touches. It resolves the file, then walks the real imports." | Type it visibly, submit around 0:16, let the spinner run while you keep talking. |
-| **0:26–0:40** | Summary refreshes to `application.js · high risk · 1 direct, 99 indirect · showing 14 of 100`; first row `lib/express.js` with `imports it · line 18`; indirect rows tagged `depth 2`, `depth 3` | "One direct hit: `lib/express.js`, line 18. Ninety nine indirect, three levels deep into the examples. The model wrote the sentence. The graph wrote this list." | Scroll the list slowly, one screen height, and stop on a `depth 3` row. |
-| **0:40–0:52** | Race panel, same prompt on both providers, timers running | "Same prompt, two providers, timed from the same start." | Submit the race at 0:41. Narrate only numbers you can see. |
-| **0:52–0:58** | Pull back to the impact panel | "Sightread. Ask your repo, then see what your change breaks." | Stop moving. Repo URL goes in the caption, never spoken. |
+| **0:00–0:06** | Impact panel already populated, summary reading `application.js · high risk · 1 direct, 99 indirect · showing 14 of 100`; toggle reads `graph evidence on` | "This is Express. Change one file, and a hundred others sit downstream." | Nothing. Let the number sit still for a beat before you talk. |
+| **0:06–0:12** | Repo selected, impact header reading `142 files · 160 imports parsed` | "Sightread parsed 142 files and 160 imports before it answered anything." | Point at the count, then at the hot chips. |
+| **0:12–0:22** | Toggle flipped to `off`; question submitted: *If I change lib/application.js, what breaks?* | "First, the same question with the graph switched off. This is the model reading files on its own." | Untick at 0:12, submit by 0:14. |
+| **0:22–0:32** | Answer opens with `Graph evidence off. This is the model answering alone`; it names a handful of files | "It names a few, and it cannot know what it missed." | Let the answer sit. Do not read the file list aloud; the point is that it is short. |
+| **0:32–0:44** | Toggle back to `on`, ask again, panel refreshes to `1 direct, 99 indirect · showing 14 of 100`; first row `lib/express.js` with `imports it · line 18`; rows tagged `depth 2`, `depth 3` | "Now the parsed graph. One direct hit, `lib/express.js`, line 18. Ninety nine indirect, three levels deep. The model wrote the sentence. The graph wrote this list." | Retick, submit at 0:33, scroll slowly and stop on a `depth 3` row. |
+| **0:44–0:53** | Race panel, same prompt on both providers, timers running | "Same prompt, two providers, timed from the same start." | Submit the race at 0:45. Narrate only numbers you can see. |
+| **0:53–0:58** | Pull back to the impact panel | "Sightread. Ask your repo, then see what your change breaks." | Stop moving. Repo URL goes in the caption, never spoken. |
 
 ### Rules for the edit
 
 - **Nothing is claimed that the frame does not show.** If the race panel shows `–`
   for tok/s, say nothing about tok/s. An unmeasured number is the one thing a
   comment section will find.
-- **If a beat overruns**, cut the race (0:40–0:52) and give the impact panel the
-  twelve seconds. The graph is the product; the race is B-roll.
-- **If the ask stalls past four seconds**, keep talking through the spinner. Dead
-  air reads as a broken product; a spinner while you explain does not.
+- **If a beat overruns**, cut the race (0:44–0:53) and give the toggle comparison
+  the nine seconds. The comparison is the product; the race is B-roll.
+- **If the first ask stalls past four seconds**, keep talking through the spinner.
+  Dead air reads as a broken product; a spinner while you explain does not.
+- **If the model happens to name a long list**, drop that beat and open on the
+  graph instead. Do not let the video imply the model guessed two files when it
+  guessed ten.
 - **One take per beat is fine**, but the timer must be continuous. Stitch only if
   the join is invisible at 0:13 and 0:40.
 - Captions on: X and Reddit autoplay muted, so the first frame has to carry the
