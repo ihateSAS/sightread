@@ -18,6 +18,23 @@ The answer arrives while you're still framing the follow-up question.
 That is the entire product thesis. Everything below exists to make it visible in
 under sixty seconds.
 
+## What the model does not do
+
+Repo chat is crowded. CodeLens, Sherlock, GitLab Duo and CodeMap AI all put an
+assistant in front of a codebase, and GitDiagram already turns a repository into
+an architecture diagram with a narrated video. Answering questions well is table
+stakes, not a differentiator.
+
+So the second surface is **computed, not generated**. The change-impact map in
+`app/lib/impact.mjs` parses real import statements, resolves relative specifiers
+against the files that actually exist, and walks a file's dependents outward. The
+panel lists direct importers with the line their import sits on, then indirect
+ones by hop distance. No model touches that graph, so it cannot invent an edge.
+The model's job is to explain the list, not to produce it.
+
+That is the claim worth checking in a demo: every arrow on screen is a line you
+can open.
+
 ## How OpenClaw is load-bearing
 
 This is not a chat wrapper around a completion endpoint. Every question is a real

@@ -9,6 +9,6 @@
     "start:gateway": "SIGHTREAD_TRANSPORT=gateway node app/server.mjs",
     "race": "node race/server.mjs",
     "check": "bash ./check-cerebras.sh",
-    "test": "node --test test/app.test.mjs"
+    "test": "node --test test/*.test.mjs"
   }
 }

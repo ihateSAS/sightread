@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { loadEnv } from "./lib/env.mjs";
 import { listAvailableRepos, prepareRepo, readCitedFile, runCommand } from "./lib/repo.mjs";
 import { getRaceState, runRaceStream } from "./lib/race.mjs";
+import { buildImportGraph, impactOf, hottestFiles } from "./lib/impact.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(HERE, "..");
@@ -31,6 +32,7 @@ const TYPES = {
 };
 
 const ALLOWED_THINKING = new Set(["low", "medium", "high"]);
+const graphCache = new Map();
 
 function getConfig() {
   const n = Number(process.env.PORT);
@@ -315,6 +317,35 @@ export function createAppServer({ projectRoot = PROJECT_ROOT, reposDir = REPOS, 
           : await askViaExec(cfg, target, String(question).trim(), thinking);
 
         return json(res, result.ok ? 200 : 502, result);
+      }
+
+      // Impact map. Parsing a repo is the expensive part, so the graph is
+      // cached briefly: repeat lookups are instant while editing.
+      if (req.method === "GET" && url.pathname === "/api/impact") {
+        const repo = resolve(url.searchParams.get("repo") || projectRoot);
+        const target = url.searchParams.get("path");
+        const isDir = await stat(repo).then((s) => s.isDirectory()).catch(() => false);
+        if (!isDir) return json(res, 400, { error: `not a directory: ${repo}` });
+
+        const cached = graphCache.get(repo);
+        const graph =
+          cached && Date.now() - cached.at < 30000
+            ? cached.graph
+            : await buildImportGraph(repo).then((g) => {
+                graphCache.set(repo, { graph: g, at: Date.now() });
+                return g;
+              });
+
+        if (!target) {
+          return json(res, 200, {
+            ok: true,
+            hot: hottestFiles(graph),
+            stats: { files: graph.files.length, imports: graph.imports, languages: graph.languages },
+          });
+        }
+        const result = impactOf(graph, target);
+        result.hot = hottestFiles(graph);
+        return json(res, 200, result);
       }
 
       if (req.method === "GET" && url.pathname === "/api/race/state") {
