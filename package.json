@@ -9,6 +9,7 @@
     "start:gateway": "SIGHTREAD_TRANSPORT=gateway node app/server.mjs",
     "race": "node race/server.mjs",
     "check": "bash ./check-cerebras.sh",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "gateway": "set -a; . ./.env 2>/dev/null; set +a; exec openclaw gateway run"
   }
 }

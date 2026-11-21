@@ -48,7 +48,7 @@ This is not a chat wrapper around a completion endpoint. Every question is a rea
 OpenClaw agent turn:
 
 ```bash
-openclaw gateway start          # once — stays warm
+npm run gateway                 # sources .env, runs the gateway
 openclaw agent -m "<question>" \
   --agent sightread \
   --model cerebras/kimi-k3.1-pro \

@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "../app/lib/env.mjs";
 import { normalizeRepoUrl, readCitedFile, slugFromUrl } from "../app/lib/repo.mjs";
-import { createAppServer } from "../app/server.mjs";
+import { createAppServer, modelMismatch } from "../app/server.mjs";
 
 const PROJECT_ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
@@ -22,6 +22,14 @@ test("parseEnv handles quotes, exports, and inline comments", () => {
   assert.equal(parsed.OPENROUTER_API_KEY, "or-test-456");
   assert.equal(parsed.PORT, "8787");
   assert.equal(parsed.EMPTY, "");
+});
+
+test("modelMismatch catches a silent fallback but ignores the provider prefix", () => {
+  assert.equal(modelMismatch("cerebras/kimi-k3.1-pro", "cerebras/kimi-k3.1-pro"), false);
+  assert.equal(modelMismatch("cerebras/kimi-k3.1-pro", "kimi-k3.1-pro"), false);
+  assert.equal(modelMismatch("cerebras/kimi-k3.1-pro", "cerebras/gpt-oss-120b"), true);
+  assert.equal(modelMismatch("cerebras/kimi-k3.1-pro", "moonshotai/kimi-k3.1-pro"), false);
+  assert.equal(modelMismatch("cerebras/kimi-k3.1-pro", null), false);
 });
 
 test("normalizeRepoUrl and slugFromUrl accept URLs and owner/repo shorthand", () => {

@@ -32,6 +32,15 @@ const TYPES = {
 };
 
 const ALLOWED_THINKING = new Set(["low", "medium", "high"]);
+
+// OpenClaw can drop to a fallback model without telling the caller, which would
+// let a demo claim Kimi while a different model answered. Compare what came back
+// with what we asked for, ignoring the provider prefix.
+const modelLeaf = (m) => String(m || "").split("/").pop().toLowerCase();
+export function modelMismatch(configured, actual) {
+  if (!configured || !actual) return false;
+  return modelLeaf(configured) !== modelLeaf(actual);
+}
 const graphCache = new Map();
 
 // A question only earns a graph lookup when it is about change. Asking how
@@ -222,7 +231,7 @@ async function askViaExec(cfg, repoPath, question, thinking, evidence) {
       elapsedMs,
       transport: "exec",
       error: (r.stderr || r.stdout || "no output from openclaw").slice(0, 800),
-      hint: "Run ./check-cerebras.sh or start the warm gateway (`openclaw gateway start`).",
+      hint: "Run ./check-cerebras.sh, or start the warm gateway with `npm run gateway`.",
     };
   }
   return {
@@ -267,7 +276,7 @@ async function askViaGateway(cfg, repoPath, question, thinking, sessionId, evide
       elapsedMs,
       transport: "gateway",
       error: (r.stderr || r.stdout || "no output from gateway").slice(0, 800),
-      hint: "Is the gateway running? Try: openclaw gateway start",
+      hint: "Is the gateway running? Start it with `npm run gateway` (it sources .env).",
     };
   }
   const meta = env.result?.meta ?? {};
@@ -407,6 +416,8 @@ export function createAppServer({ projectRoot = PROJECT_ROOT, reposDir = REPOS, 
 
         result.impact = evidence;
         result.impactMs = impactMs;
+        result.configuredModel = cfg.model;
+        result.modelMismatch = modelMismatch(cfg.model, result.model);
         return json(res, result.ok ? 200 : 502, result);
       }
 

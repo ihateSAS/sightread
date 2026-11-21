@@ -26,7 +26,7 @@ cd ~/Desktop/home/kimi-hackathon
 git pull
 export CEREBRAS_API_KEY=csk-...
 
-openclaw gateway status            # must be reachable; if not: openclaw gateway start
+openclaw gateway status            # if not running: npm run gateway  (sources .env)
 ./check-cerebras.sh                # must print "harness green"
 
 SIGHTREAD_TRANSPORT=gateway node app/server.mjs   # :8787 — leave running

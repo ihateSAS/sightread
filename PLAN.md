@@ -90,7 +90,7 @@ Three legitimate patterns. Pick per project shape.
 Gateway + a channel (Discord/Telegram/WhatsApp/WebChat) + your custom skill. The product *is* an assistant in a chat app. Cheapest to build, and the demo video is just a screen recording of a chat — which is exactly the format that performs on X.
 
 ```bash
-openclaw gateway start
+npm run gateway
 openclaw channels add            # or: openclaw onboard
 openclaw skills install ./openclaw/skills/kimi-speed-lab --global
 ```
@@ -99,7 +99,7 @@ openclaw skills install ./openclaw/skills/kimi-speed-lab --global
 Your app owns the interface; every turn is sent to an already-running Gateway, which runs the Kimi tool loop and returns JSON.
 
 ```bash
-openclaw gateway start                       # once, stays warm
+npm run gateway                       # once, stays warm
 openclaw agent -m "Where does auth expire in repos/owner__name?" \
   --agent sightread \
   --model cerebras/kimi-k3.1-pro \
