@@ -203,26 +203,30 @@ Three different numbers live in this project, and they measure different things:
 |---|---|---|
 | Speed Race panel (raw streaming) | first token, then a 600-token answer, same model both sides | 278ms first token, 561ms total, 1,069 tok/s wall (2,045 tok/s server) |
 | Speed Race panel, OpenRouter lane | the same 600 tokens, same model | 857ms first token, 5.14s total, 117 tok/s wall |
-| Ask panel, aided turn | graph parsed locally, then a fresh bridge and the first streamed chunk | 2.07s first token, 2.31s total |
-| Ask panel, unaided turn | same model, same question, no graph | 3.11s first token, 4.56s total |
+| Ask panel, aided turn | graph parsed locally, then the first streamed chunk | 377ms first token, 561ms total |
+| Ask panel, unaided turn | same model, same question, no graph | 1.01s first token, 2.10s total |
 
-The Ask panel streams through the ACP bridge (`openclaw acp`), so its
-first-token number is the first delta the browser received, not an estimate.
-The bridge is spawned per question, because ACP sessions on one bridge share a
-gateway session: a word told to the first session was recalled by the second,
-which would let the no-graph answer read the aided turn and destroy the
-comparison. Isolation costs about 1.2s of each turn and is worth it. The bridge
-honours the page's thought level through `session/set_mode`.
+The Ask panel streams directly from Cerebras, so its first-token number is the
+first delta the browser received, not an estimate. That is a measured choice:
+on this machine the gateway spent 14-22s of every turn in its own session store
+(its log shows `slow chat send ... preparation=14117ms` with multi-second
+SQLite writes), while the same prompt answered from the provider in about 2s.
+The answer needs no tools, no history and no workspace access, so the agent
+runtime was adding cost without adding anything.
 
-ACP has no per-session model override, so the `sightread` agent's own config
-decides the model: Kimi K3.1 Pro primary, qwen-3.8-27b fallback. The server
-reconciles that chain at boot against the provider's model list, so it runs qwen
-while Kimi is missing and promotes Kimi on the first restart that sees it. That
-matters because a chain that keeps trying a missing primary pays seconds of
-retry on every turn. The model named on screen comes from the same resolution,
-kept separate from `configuredModel`, so the page can say plainly when the
-fallback answered. `/api/ask` still returns the whole envelope for callers that
-do not stream.
+Each turn is timed in phases and printed by `npm start` as
+`turn <model> ttft=...ms prepare=...ms {...}`: local preparation, request
+headers, wait to first chunk, then streaming. That is how the gateway cost was
+found, and it stays in the log so the next regression is attributable instead of
+one unexplained number.
+
+The model chain lives in the same stream helper: Kimi K3.1 Pro first,
+qwen-3.8-27b next, gpt-oss-120b last. A model the provider does not list is
+skipped and the next one answers, so the chain upgrades the moment Kimi appears.
+The server still reconciles that chain at boot against the provider's model list
+and reports the resolved model separately from `configuredModel`, so the page can
+say plainly when the fallback answered. `/api/ask` still returns the whole
+envelope for callers that do not stream.
 
 The blind-spot turn uses the streaming route too, so it reports its own
 first-token time in the pane instead of only a total.

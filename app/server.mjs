@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 import { loadEnv } from "./lib/env.mjs";
 import { listAvailableRepos, prepareRepo, readCitedFile, runCommand } from "./lib/repo.mjs";
 import { getRaceState, runRaceStream } from "./lib/race.mjs";
+import { streamProvider } from "./lib/provider.mjs";
 import { buildImportGraph, impactOf, hottestFiles, listSourceFiles } from "./lib/impact.mjs";
-import { createAcpClient } from "./lib/acp.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(HERE, "..");
@@ -176,8 +176,8 @@ async function probeCerebrasModel(cfg) {
   return { present: new RegExp(`(^|[^A-Za-z0-9_-])${escaped}([^A-Za-z0-9_-]|$)`).test(text) };
 }
 
-// ACP never reports which model won a turn, and the sightread agent has a
-// fallback chain, so the label has to come from somewhere honest. The provider's
+// A streamed turn does not say up front which model will serve it, and the chain
+// has fallbacks, so the label has to come from somewhere honest. The provider's
 // own model list is that signal: cache it briefly and name the model the turn
 // can actually run. The moment Kimi appears there, the page says Kimi.
 let modelListCache = { at: 0, ids: null };
@@ -563,12 +563,6 @@ export function createAppServer({
     };
   }
 
-  // The ACP bridge is spawned once and reused; the first spawn costs ~1.8s.
-  const acp = createAcpClient({
-    bin: process.env.OPENCLAW_BIN || "openclaw",
-    agent: process.env.SIGHTREAD_AGENT || "sightread",
-  });
-
   // Warm the probe so the first blocked ask answers from cache instead of
   // paying the CLI start itself.
   const bootCfg = getConfig();
@@ -701,10 +695,11 @@ export function createAppServer({
         return json(res, result.ok ? 200 : 502, result);
       }
 
-      // Streaming ask. The CLI only prints the finished envelope, so this route
-      // goes through the ACP bridge, which emits text as the model writes it.
-      // The first token time here is real: it is the first chunk the browser got.
+      // Streaming ask. The provider is called directly and its deltas are
+      // forwarded as they arrive. The first token time here is real: it is the
+      // first chunk the browser got, not a total divided by tokens.
       if (req.method === "POST" && url.pathname === "/api/ask/stream") {
+        const routeStart = performance.now();
         const body = await readBody(req);
         const prep = await prepareAsk(cfg, body);
         if (prep.error) return json(res, prep.error, prep.body);
@@ -726,6 +721,9 @@ export function createAppServer({
           : `Repository: ${prep.target}\n\n${unaidedPrompt(prep.question)}`;
 
         const model = prep.model;
+        // Everything before the first byte the browser can act on: validation,
+        // model resolution and the local import parse.
+        const prepareMs = Math.round(performance.now() - routeStart);
         send("meta", {
           impact: prep.evidence,
           impactMs: prep.impactMs,
@@ -735,13 +733,19 @@ export function createAppServer({
           configuredModel: cfg.model,
           modelMismatch: model !== cfg.model,
           thinking: prep.thinking,
+          prepareMs,
         });
 
+        let phases = null;
+        let answeredModel = model;
         try {
-          const out = await acp.ask({
-            prompt,
-            cwd: prep.target,
+          // The answer needs no tools and no history, so it is streamed from the
+          // provider directly. On a loaded machine the gateway spent 14-22s per
+          // turn in its session store, while the same prompt answers here in ~2s.
+          const out = await streamProvider({
+            model,
             thinking: prep.thinking,
+            prompt,
             // The streamed turn obeys the same deadline as the JSON route, so a
             // stuck turn cannot outlive the one the UI promises to stop.
             timeoutMs: ASK_DEADLINE_MS,
@@ -751,20 +755,24 @@ export function createAppServer({
               send("delta", { text: chunk, t: Math.round(performance.now() - started) });
             },
           });
+          phases = out.phases;
+          answeredModel = out.model;
           send("done", {
             ok: true,
             final: text,
             ttftMs,
+            prepareMs,
+            phases,
             elapsedMs: Math.round(performance.now() - started),
             agentMs: out.elapsedMs,
             assistantTurns: null,
             toolSummary: out.toolCalls ? { calls: out.toolCalls } : null,
             sessionId: out.sessionId,
             stopReason: out.stopReason,
-            model,
+            model: answeredModel,
             configuredModel: cfg.model,
-            modelMismatch: model !== cfg.model,
-            transport: "acp",
+            modelMismatch: answeredModel !== cfg.model,
+            transport: "cerebras",
             impact: prep.evidence,
             impactMs: prep.impactMs,
             impactUsed: Boolean(prep.evidence),
@@ -776,6 +784,12 @@ export function createAppServer({
             error: `Streaming turn failed: ${e.message}`,
             hint: "The page falls back to /api/ask automatically. Run ./check-cerebras.sh if it keeps failing.",
           });
+        }
+        if (text) {
+          console.log(
+            `turn ${answeredModel} ttft=${ttftMs}ms prepare=${prepareMs}ms`,
+            JSON.stringify(phases ?? {})
+          );
         }
         return res.end();
       }
@@ -818,10 +832,7 @@ export function createAppServer({
     }
   });
 
-  // The bridge is spawned on demand; expose it so the entry point can warm it.
-  server.acp = acp;
   server.syncModel = () => syncAgentModel(getConfig());
-  server.on("close", () => acp.close());
   return server;
 }
 
