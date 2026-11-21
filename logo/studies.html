@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sightread — mark studies</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 48px 40px 64px;
+    background: #101011; color: #e8e6e2;
+    font: 15px/1.5 ui-sans-serif, -apple-system, "Segoe UI", Helvetica, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-size: 15px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #8a8781; margin: 0 0 6px; }
+  .sub { color: #6f6c67; margin: 0 0 40px; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 1180px; }
+  .card { background: #17171a; border: 1px solid #26262b; border-radius: 14px; padding: 26px 24px 22px; }
+  .card h2 { font-size: 13px; margin: 0 0 2px; font-weight: 600; letter-spacing: .02em; }
+  .card .note { font-size: 12px; color: #7b7873; margin: 0 0 22px; min-height: 34px; }
+  .marks { display: flex; gap: 18px; align-items: flex-end; }
+  .marks figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .marks figcaption { font-size: 10px; color: #5f5c58; letter-spacing: .06em; text-transform: uppercase; }
+  .swatches { display: flex; gap: 8px; margin-top: 22px; align-items: center; }
+  .chip { width: 22px; height: 22px; border-radius: 5px; border: 1px solid rgba(255,255,255,.14); }
+  .hexes { font: 11px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; color: #6f6c67; margin-top: 12px; }
+  .wordmark { margin-top: 26px; padding-top: 20px; border-top: 1px solid #232327; display: flex; align-items: center; gap: 12px; }
+  .wordmark span { font-size: 27px; letter-spacing: -.035em; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Sightread — three ways out of neon</h1>
+<p class="sub">Bracket shape kept, magnifier gone, YGD gone. Pick a column; I'll vectorise the winner.</p>
+<div class="grid" id="grid"></div>
+
+<script>
+const palettes = [
+  {
+    name: "01 — Paper & Ink",
+    note: "Editorial, near-monochrome. Musicians' first-sight mark. Nothing else in the feed will look like this.",
+    bg: "#F4F0E8", mark: "#141210", dim: "#B9B2A4",
+    hex: ["#F4F0E8", "#141210", "#B9B2A4"],
+  },
+  {
+    name: "02 — Warm Archive",
+    note: "Ink on cream with a burnt-orange accent. Reads as Cerebras-adjacent warmth without copying their orange.",
+    bg: "#211711", mark: "#F1E6D6", dim: "#8A6B52", accent: "#E4572E",
+    hex: ["#211711", "#F1E6D6", "#E4572E"],
+  },
+  {
+    name: "03 — Graphite",
+    note: "Flat silver on graphite. Technical, quiet, survives any compression. The safe one.",
+    bg: "#1B1D21", mark: "#D8DBE0", dim: "#6A7078",
+    hex: ["#1B1D21", "#D8DBE0", "#6A7078"],
+  },
+];
+
+// One mark, parameterised. size in px.
+function mark(p, size, withNumbers) {
+  const s = size;
+  const pad = s * 0.14;
+  const r = s * 0.235;
+  const stroke = Math.max(2, s * 0.045);
+  const left = pad + s * 0.10;
+  const top = pad + s * 0.16;
+
+  // bracket: two chevrons
+  const midY = s / 2;
+  const armY = s * 0.20;
+  const armX = s * 0.14;
+
+  const chevronTop = `M ${left + s*0.13} ${midY} L ${left} ${midY - armY*0.55} L ${left + s*0.13} ${midY - armY*1.1}`;
+  const chevronBot = `M ${left + s*0.13} ${midY} L ${left} ${midY + armY*0.55} L ${left + s*0.13} ${midY + armY*1.1}`;
+
+  const gutterX = left + s * 0.235;
+  const barX = gutterX + (withNumbers ? s * 0.105 : s * 0.02);
+  const barW = s - pad - s * 0.13 - barX;
+  const rows = [0, 1, 2];
+  const rowGap = s * 0.175;
+  const barH = Math.max(3, s * 0.052);
+
+  const bars = rows.map(i => {
+    const y = midY + (i - 1) * rowGap - barH / 2;
+    const filled = i === 0;
+    const w = filled ? barW : barW * (i === 1 ? 0.82 : 0.58);
+    const fill = filled ? (p.accent || p.mark) : p.dim;
+    return `<rect x="${barX}" y="${y}" width="${w}" height="${barH}" rx="${barH/2}" fill="${fill}"/>`;
+  }).join("");
+
+  const nums = withNumbers ? rows.map(i => {
+    const y = midY + (i - 1) * rowGap + barH * 0.42;
+    return `<text x="${gutterX}" y="${y}" text-anchor="middle"
+      font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+      font-size="${s * 0.075}" fill="${p.dim}">${i + 1}</text>`;
+  }).join("") + `<rect x="${gutterX + s*0.045}" y="${midY - rowGap - barH}" width="1.5" height="${rowGap*2 + barH*2}" fill="${p.dim}" opacity=".55"/>` : "";
+
+  return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" role="img" aria-label="Sightread mark">
+    <rect x="1" y="1" width="${s-2}" height="${s-2}" rx="${r}" fill="${p.bg}" stroke="rgba(0,0,0,.10)"/>
+    <path d="${chevronTop}" fill="none" stroke="${p.mark}" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="${chevronBot}" fill="none" stroke="${p.mark}" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round"/>
+    ${bars}${nums}
+  </svg>`;
+}
+
+document.getElementById("grid").innerHTML = palettes.map(p => `
+  <section class="card">
+    <h2>${p.name}</h2>
+    <p class="note">${p.note}</p>
+    <div class="marks">
+      <figure>${mark(p, 132, false)}<figcaption>132px</figcaption></figure>
+      <figure>${mark(p, 64, false)}<figcaption>64px</figcaption></figure>
+      <figure>${mark(p, 32, false)}<figcaption>32px</figcaption></figure>
+      <figure>${mark(p, 64, true)}<figcaption>64 · gutter</figcaption></figure>
+    </div>
+    <div class="swatches">${p.hex.map(h => `<div class="chip" style="background:${h}"></div>`).join("")}</div>
+    <div class="hexes">${p.hex.join("  ·  ")}</div>
+    <div class="wordmark">${mark(p, 34, false)}<span style="color:#EDEAE4">Sightread</span></div>
+  </section>
+`).join("");
+</script>
+</body>
+</html>
