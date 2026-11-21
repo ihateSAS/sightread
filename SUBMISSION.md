@@ -117,8 +117,14 @@ first, never the blind-spot count.
 1. `npm start` (it loads `.env` and streams straight from Cerebras; the gateway
    is no longer on the Ask path). Open `http://localhost:8787`, click the header
    chip, and confirm it reads `Kimi K3.1 Pro cerebras` with no fallback banner.
-   If it reads `Qwen 3.8 27B`, the key or the trial access is not in place, so fix
-   that before recording. Close the popover. The Speed Race
+   **The chip, not the clock, decides what you may claim.** If it reads
+   `Qwen 3.8 27B` while the queue is still long, the app did the right thing and
+   handed the turn to the fallback after the first-token budget; either wait for
+   a quiet minute and retake so the take is a Kimi take, or keep the take and say
+   Cerebras without naming Kimi. A chip that says Qwen next to a sentence about
+   Kimi is the one thing a judge will catch. If the chip says Qwen in a quiet
+   minute, then the key or the trial access is genuinely missing. Close the
+   popover. The Speed Race
    panel used in the 0:44 beat is the **Speed Race tab on this same page**
    (`:8787`), not the standalone `node race/server.mjs` on `:8788`.
    The page layout is two columns: question form on the left, Change impact on
@@ -179,8 +185,11 @@ first, never the blind-spot count.
 - **If a beat overruns**, cut the race (0:44–0:53) and give the blind spot pane
   the nine seconds. The comparison is the product; the race is B-roll.
 - **Name Kimi only if the chip does.** The header chip reports the model that
-  will answer, so a Kimi take needs `Kimi K3.1 Pro` in the chip and no fallback
-  banner. Otherwise say Cerebras and leave the model out of the claim.
+  actually answered, so a Kimi take needs `Kimi K3.1 Pro` in the chip and no
+  fallback banner. Otherwise say Cerebras and leave the model out of the claim.
+  The first-token budget hands a queued turn to the fallback on purpose, so a
+  fallback banner in frame is a working product, not a fault; just do not
+  narrate over it as if Kimi answered.
 - **If the first ask stalls past four seconds**, keep talking through the spinner.
   Dead air reads as a broken product; a spinner while you explain does not. The
   first-token budget normally hands the turn to the fallback inside a couple of
