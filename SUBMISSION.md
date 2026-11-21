@@ -82,7 +82,11 @@ Whichever chip is in the finished take, quote that run:
 | Take | Aided | Unaided | Coverage |
 |---|---|---|---|
 | Kimi chip | 7.12s, 422 out | 11.05s, 1,605 out | 21 vs 13 of 100 |
-| Qwen fallback chip | 0.47s, 358 out | 1.39s, 1,158 out | 21 vs 3 of 100 |
+| Qwen fallback chip | 3.23s, 154 out | 1.14s, 998 out | 20 vs 1 of 100 |
+
+The fallback take pays the 3s budget as visible first-token time, because the
+abandoned Kimi attempt is part of the turn. The unaided count swings 1 to 3 across
+runs, so read it off the screen.
 
 The fallback take is faster and its blind spot is wider, because a weaker model
 guesses worse. Do not mix a Kimi sentence with a Qwen frame.
@@ -131,10 +135,10 @@ first, never the blind-spot count.
    substituted one. Shoot the fallback take only if the queue never clears, and
    then disclose it.
    The trial endpoint is shared, so the same take can land in 0.9s or 70s. Run
-   `node kimi-queue.mjs` and wait for `queue` **under about 5000ms**, which is the
+   `node kimi-queue.mjs` and wait for `queue` **under about 3000ms**, which is the
    shipped first-token budget: under it, Kimi answers and stays in frame. Over it,
    the app hands the turn to qwen and the chip says so, and the trade is a fallback
-   take. If the queue sits at 6 to 10s and you want the Kimi take anyway, raise
+   take. If the queue sits at 4 to 10s and you want the Kimi take anyway, raise
    `SIGHTREAD_FIRST_TOKEN_BUDGET_MS` to `12000` for the take and restart. Do not
    raise it for a 70s queue; the answer then lands after the video ends.
 0b. **Make the race lanes match the chip.** They ship as the qwen pair right now,

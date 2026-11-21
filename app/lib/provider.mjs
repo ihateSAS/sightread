@@ -44,7 +44,7 @@ export async function streamProvider({ model, thinking, prompt, onChunk, timeout
   // before the first content chunk, so an answer that has started is never cut
   // off mid-sentence, and never to the last candidate because there is nothing
   // left to fall through to.
-  const budgetMs = Math.max(0, Number(process.env.SIGHTREAD_FIRST_TOKEN_BUDGET_MS ?? 5000) || 0);
+  const budgetMs = Math.max(0, Number(process.env.SIGHTREAD_FIRST_TOKEN_BUDGET_MS ?? 3000) || 0);
   const chain = providerChain(model);
 
   for (const [index, candidate] of chain.entries()) {
