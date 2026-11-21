@@ -180,27 +180,33 @@ async function probeCerebrasModel(cfg) {
 // has fallbacks, so the label has to come from somewhere honest. The provider's
 // own model list is that signal: cache it briefly and name the model the turn
 // can actually run. The moment Kimi appears there, the page says Kimi.
-let modelListCache = { at: 0, ids: null };
+let modelListCache = { key: "", at: 0, ids: null };
 
 async function cerebrasModelIds() {
-  if (Date.now() - modelListCache.at < 60_000) return modelListCache.ids;
+  // Honour the same base URL as the turn itself, so a stub provider or a
+  // gateway deployment resolves models against the host that will serve them.
+  // The cache is keyed by host and key: a list from one provider must never
+  // decide which model another provider will answer with.
+  const base = (process.env.CEREBRAS_BASE_URL || "https://api.cerebras.ai/v1").replace(/\/$/, "");
+  const cacheKey = `${base}\n${process.env.CEREBRAS_API_KEY || ""}`;
+  if (modelListCache.key === cacheKey && Date.now() - modelListCache.at < 60_000) {
+    return modelListCache.ids;
+  }
   try {
-    // Honour the same base URL as the turn itself, so a stub provider or a
-    // gateway deployment resolves models against the host that will serve them.
-    const base = (process.env.CEREBRAS_BASE_URL || "https://api.cerebras.ai/v1").replace(/\/$/, "");
     const res = await fetch(`${base}/models`, {
       headers: { authorization: `Bearer ${process.env.CEREBRAS_API_KEY}` },
       signal: AbortSignal.timeout(3000),
     });
     const data = await res.json();
     modelListCache = {
+      key: cacheKey,
       at: Date.now(),
       ids: Array.isArray(data?.data) ? data.data.map((m) => m.id) : null,
     };
   } catch {
     // Unknown is not the same as missing: keep claiming the configured model
     // rather than inventing a fallback the turn may not have used.
-    modelListCache = { at: Date.now(), ids: null };
+    modelListCache = { key: cacheKey, at: Date.now(), ids: null };
   }
   return modelListCache.ids;
 }
@@ -536,7 +542,11 @@ export function createAppServer({
         },
       };
     }
-    if (/^cerebras\//i.test(cfg.model)) {
+    // The direct-provider route does not consult OpenClaw, so the CLI probe is
+    // only meaningful for a keyless CLI turn. It shells out to OpenClaw, which
+    // took 25s once on a loaded machine; paying that before a turn that will
+    // never use it made the first cold ask look broken.
+    if (/^cerebras\//i.test(cfg.model) && !process.env.CEREBRAS_API_KEY) {
       const probe = await checkModel(cfg);
       if (probe.present === false) {
         return {
@@ -574,10 +584,11 @@ export function createAppServer({
     };
   }
 
-  // Warm the probe so the first blocked ask answers from cache instead of
-  // paying the CLI start itself.
+  // Warm the probe so the first blocked CLI ask answers from cache instead of
+  // paying the CLI start itself. With a key the turn goes straight to the
+  // provider, so there is nothing to warm.
   const bootCfg = getConfig();
-  if (process.env.CEREBRAS_API_KEY && /^cerebras\//i.test(bootCfg.model)) {
+  if (!process.env.CEREBRAS_API_KEY && /^cerebras\//i.test(bootCfg.model)) {
     checkModel(bootCfg).catch(() => {});
   }
 
@@ -608,9 +619,10 @@ export function createAppServer({
       }
 
       if (req.method === "GET" && url.pathname === "/api/health") {
-        const [v, gatewayUp] = await Promise.all([
+        const [v, gatewayUp, answerModel] = await Promise.all([
           runCommand(cfg.agentBinary, ["--version"]),
           isGatewayReachable(cfg.gatewayPort),
+          effectiveModel(cfg),
         ]);
         const effectiveTransport =
           cfg.transport === "auto" ? (gatewayUp ? "gateway" : "exec") : cfg.transport;
@@ -618,6 +630,10 @@ export function createAppServer({
           ok: true,
           openclaw: v.stdout.trim() || v.stderr.trim() || "not found",
           model: cfg.model,
+          // What will actually answer, which is not always the configured model
+          // and is never the CLI transport once a key is present.
+          answerModel,
+          answerTransport: process.env.CEREBRAS_API_KEY ? "cerebras" : effectiveTransport,
           agent: cfg.agent,
           transport: cfg.transport,
           effectiveTransport,
@@ -790,7 +806,7 @@ export function createAppServer({
           impactDisabled: !prep.useImpact,
           model,
           configuredModel: cfg.model,
-          modelMismatch: model !== cfg.model,
+          modelMismatch: modelMismatch(cfg.model, model),
           thinking: prep.thinking,
           prepareMs,
         });
@@ -832,7 +848,10 @@ export function createAppServer({
             stopReason: out.stopReason,
             model: answeredModel,
             configuredModel: cfg.model,
-            modelMismatch: answeredModel !== cfg.model,
+            // The provider returns the model id without its provider prefix, so
+            // this compares the leaf names. Comparing the raw strings labelled
+            // a Kimi answer as a fallback on the first boot with a Kimi key.
+            modelMismatch: modelMismatch(cfg.model, answeredModel),
             transport: "cerebras",
             impact: prep.evidence,
             impactMs: prep.impactMs,

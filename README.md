@@ -175,36 +175,42 @@ paired answers, clickable citations, race panel, TPS lab. `kimi-k3.1-pro` still
 returns `model_not_found` until the capacity request is processed; the config
 lists it as the primary model and the agent uses the fallback while it waits.
 
-Measured on `repos/expressjs__express`, Nov 18, one paired run:
+Measured on `repos/expressjs__express`, Nov 18, one paired run on
+`qwen-3.8-27b` (the declared fallback while Kimi capacity is pending):
 
 | Run | First token | Wall | Downstream named |
 |---|---|---|---|
-| With graph | 2.92s | 3.12s | 21 of 100 |
-| Graph off | 1.46s | 1.98s | 3 of 100 |
+| With graph | 0.61s | 0.86s | 21 of 100 |
+| Graph off | 0.21s | 1.49s | 6 of 100 |
 
 The graph resolves `lib/application.js` to 100 downstream files: one direct
 importer at `lib/express.js:18` and 99 indirect across three levels. The aided
 turn answered from that list and named 21 of them. The unaided turn was the same
-agent with no graph, asked to make its best guess from what it knows, and named
-3. Coverage comes from `app/public/coverage.mjs`, the module the page imports,
-so the number on screen is the number the tests check. The baseline is a real
-attempt on purpose: handing it only a path invited "I have no file access",
-which would inflate the gap without testing the graph.
+model with no graph, asked to make its best guess from what it knows, and named
+6. Coverage varies per run, and comes from `app/public/coverage.mjs`, the module
+the page imports, so the number on screen is the number the tests check. The
+baseline is a real attempt on purpose: handing it only a path invited "I have no
+file access", which would inflate the gap without testing the graph.
 
-Wall time is a range, not a constant: the first ask after a gateway restart took
-7.2s, and later pairs landed at 3.2s and 1.9s. A third question inside the same
-minute still reaches the ceiling, and then the turn spends its 45s deadline
-waiting rather than answering, so a demo asks one pair and pauses before the
-next ask.
+Wall time is a range: the first ask after boot also pays the import parse (about
+1s on this machine), and this pair landed at 0.86s and 1.49s with the host under
+load. The unaided turn reaches its first token sooner because it has no graph to
+wait for, then runs longer because it writes the list itself. A third question
+inside the same minute still reaches the ceiling, and then the turn spends its
+45s deadline waiting rather than answering, so a demo asks one pair and pauses
+before the next ask.
 
 Three different numbers live in this project, and they measure different things:
 
 | Path | What it measures | Measured |
 |---|---|---|
-| Speed Race panel (raw streaming) | first token, then a 600-token answer, same model both sides | 278ms first token, 561ms total, 1,069 tok/s wall (2,045 tok/s server) |
-| Speed Race panel, OpenRouter lane | the same 600 tokens, same model | 857ms first token, 5.14s total, 117 tok/s wall |
-| Ask panel, aided turn | graph parsed locally, then the first streamed chunk | 377ms first token, 561ms total |
-| Ask panel, unaided turn | same model, same question, no graph | 1.01s first token, 2.10s total |
+| Speed Race panel (raw streaming) | first token, then a 600-token answer, same model both sides | 222ms first token, 379ms total, 1,583 tok/s wall (3,030 tok/s server) |
+| Speed Race panel, OpenRouter lane | the same 600 tokens, same model | 786ms first token, 2.52s total, 238 tok/s wall |
+| Ask panel, aided turn | graph parsed locally, then the first streamed chunk | 610ms first token, 860ms total |
+| Ask panel, unaided turn | same model, same question, no graph | 210ms first token, 1.49s total |
+
+The host was under load (average 33) during this run, so these are conservative
+numbers, not a best case.
 
 The Ask panel streams directly from Cerebras, so its first-token number is the
 first delta the browser received, not an estimate. That is a measured choice:

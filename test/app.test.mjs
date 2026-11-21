@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { parseEnv } from "../app/lib/env.mjs";
 import { normalizeRepoUrl, readCitedFile, slugFromUrl } from "../app/lib/repo.mjs";
 import { createAppServer, modelMismatch } from "../app/server.mjs";
+import { contentStream, startFakeProvider } from "./fake-provider.mjs";
 
 const PROJECT_ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
@@ -134,11 +135,17 @@ test("HTTP server serves UI, health, repos, file inspection, and validates input
   assert.ok("cerebras" in raceJson && "openrouter" in raceJson);
 });
 
-test("ask fails fast when the Cerebras key or model is missing", async (t) => {
-  const prevKey = process.env.CEREBRAS_API_KEY;
-  const prevModel = process.env.SIGHTREAD_MODEL;
+test("ask fails fast without a key and skips the CLI probe on the direct path", async (t) => {
+  const prev = {
+    key: process.env.CEREBRAS_API_KEY,
+    model: process.env.SIGHTREAD_MODEL,
+    base: process.env.CEREBRAS_BASE_URL,
+  };
   process.env.SIGHTREAD_MODEL = "cerebras/kimi-k3.1-pro";
-  delete process.env.CEREBRAS_API_KEY;
+  // The key is present before the server starts, so its boot warm does not run.
+  // That keeps the probe count unambiguous.
+  process.env.CEREBRAS_API_KEY = "csk-test-not-real";
+  process.env.CEREBRAS_BASE_URL = "http://127.0.0.1:1/v1";
 
   let probes = 0;
   const server = createAppServer({
@@ -152,10 +159,14 @@ test("ask fails fast when the Cerebras key or model is missing", async (t) => {
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   t.after(() => {
     server.close();
-    if (prevKey === undefined) delete process.env.CEREBRAS_API_KEY;
-    else process.env.CEREBRAS_API_KEY = prevKey;
-    if (prevModel === undefined) delete process.env.SIGHTREAD_MODEL;
-    else process.env.SIGHTREAD_MODEL = prevModel;
+    for (const [key, value] of [
+      ["CEREBRAS_API_KEY", prev.key],
+      ["SIGHTREAD_MODEL", prev.model],
+      ["CEREBRAS_BASE_URL", prev.base],
+    ]) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
   });
 
   const { port } = server.address();
@@ -167,6 +178,7 @@ test("ask fails fast when the Cerebras key or model is missing", async (t) => {
       body: JSON.stringify({ repo: PROJECT_ROOT, question: "what breaks if I change lib/impact.mjs?" }),
     });
 
+  delete process.env.CEREBRAS_API_KEY;
   const noKey = await askOnce();
   assert.equal(noKey.status, 400);
   const noKeyBody = await noKey.json();
@@ -175,11 +187,81 @@ test("ask fails fast when the Cerebras key or model is missing", async (t) => {
   assert.equal(noKeyBody.elapsedMs, undefined);
   assert.equal(probes, 0, "no model probe without a key");
 
+  // With a key the turn goes straight to the provider, so an OpenClaw model
+  // registration is irrelevant. The dead port makes the provider fail: the
+  // answer must come from that failure, not a 25s CLI probe first.
   process.env.CEREBRAS_API_KEY = "csk-test-not-real";
-  const noModel = await askOnce();
-  assert.equal(noModel.status, 400);
-  const noModelBody = await noModel.json();
-  assert.match(noModelBody.error, /has no model/);
-  assert.equal(noModelBody.elapsedMs, undefined);
-  assert.equal(probes, 1);
+  const direct = await askOnce();
+  assert.equal(direct.status, 502);
+  const directBody = await direct.json();
+  assert.match(directBody.error, /provider failed/i);
+  assert.equal(probes, 0, "the OpenClaw probe is not on the direct path");
+});
+
+test("a Kimi answer is not labelled a fallback, and the stream carries usage", async (t) => {
+  const provider = await startFakeProvider(({ url }) =>
+    url.endsWith("/models")
+      ? { body: { data: [{ id: "kimi-k3.1-pro" }, { id: "qwen-3.8-27b" }] } }
+      : { stream: contentStream("lib/express.js imports it at line 18.") }
+  );
+  t.after(() => provider.close());
+
+  const prev = {
+    key: process.env.CEREBRAS_API_KEY,
+    model: process.env.SIGHTREAD_MODEL,
+    base: process.env.CEREBRAS_BASE_URL,
+  };
+  process.env.CEREBRAS_API_KEY = "csk-test-123";
+  process.env.SIGHTREAD_MODEL = "cerebras/kimi-k3.1-pro";
+  process.env.CEREBRAS_BASE_URL = provider.url;
+
+  let probes = 0;
+  const server = createAppServer({
+    projectRoot: PROJECT_ROOT,
+    reposDir: join(PROJECT_ROOT, "repos"),
+    modelProbe: async () => {
+      probes += 1;
+      return { present: false };
+    },
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  t.after(() => {
+    server.close();
+    for (const [key, value] of [
+      ["CEREBRAS_API_KEY", prev.key],
+      ["SIGHTREAD_MODEL", prev.model],
+      ["CEREBRAS_BASE_URL", prev.base],
+    ]) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  const { port } = server.address();
+  const res = await fetch(`http://127.0.0.1:${port}/api/ask/stream`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      repo: PROJECT_ROOT,
+      question: "What breaks if I change this file?",
+      impactPath: "app/lib/impact.mjs",
+    }),
+  });
+  assert.equal(res.status, 200);
+  const events = (await res.text())
+    .split("\n\n")
+    .filter((block) => block.startsWith("event:"))
+    .map((block) => {
+      const [head, data] = block.split("\n");
+      return { event: head.slice(7), data: JSON.parse(data.slice(6)) };
+    });
+
+  const done = events.find((e) => e.event === "done");
+  assert.ok(done, "the stream finished");
+  assert.equal(done.data.ok, true);
+  assert.equal(done.data.model, "kimi-k3.1-pro");
+  assert.equal(done.data.modelMismatch, false, "same model, not a fallback");
+  assert.equal(typeof done.data.ttftMs, "number");
+  assert.equal(done.data.usage.input, 11);
+  assert.equal(probes, 0);
 });

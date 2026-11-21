@@ -922,17 +922,23 @@ async function loadHealth() {
     $("h-dot").className = "health-dot warn";
     return;
   }
-  const shortModel = (h.model || "").split("/").pop() || "unknown";
+  // Report the model and transport that will answer, not the ones in config:
+  // with a key the turn streams from Cerebras and may use a fallback.
+  const modelShown = h.answerModel || h.model;
+  const shortModel = (modelShown || "").split("/").pop() || "unknown";
   $("h-model").textContent = shortModel;
-  $("h-transport").textContent = h.effectiveTransport || h.transport || "exec";
+  $("h-transport").textContent = h.answerTransport || h.effectiveTransport || h.transport || "exec";
   const ready = Boolean(h.keyPresent) && h.openclaw !== "not found";
   $("h-dot").className = "health-dot " + (ready ? "ok" : "warn");
 
   $("pop-status").textContent = ready ? "ready" : "needs setup";
   $("pop-oc").textContent = h.openclaw || "not found";
-  $("pop-model").textContent = h.model || "–";
+  $("pop-model").textContent = modelShown || "–";
   $("pop-agent").textContent = h.agent || "sightread";
-  $("pop-transport").textContent = `${h.effectiveTransport}${h.gatewayUp ? " (gateway warm)" : " (gateway offline)"}`;
+  $("pop-transport").textContent =
+    h.answerTransport === "cerebras"
+      ? "cerebras (direct stream)"
+      : `${h.effectiveTransport}${h.gatewayUp ? " (gateway warm)" : " (gateway offline)"}`;
   $("pop-ckey").textContent = h.keyPresent ? "configured" : "missing";
   $("pop-okey").textContent = h.openrouterKeyPresent ? "configured" : "not set";
 
@@ -940,12 +946,16 @@ async function loadHealth() {
   if (!h.keyPresent) {
     hint.className = "pop-hint";
     hint.textContent = "Set CEREBRAS_API_KEY in .env or your shell, then restart the server.";
+  } else if (h.answerModel && h.model && h.answerModel !== h.model) {
+    hint.className = "pop-hint";
+    hint.textContent = `Configured ${h.model}; the provider answers with ${h.answerModel} until it lists the primary.`;
   } else if (!h.gatewayUp) {
     hint.className = "pop-hint";
-    hint.textContent = "Tip: run `npm run gateway` to cut ~2–3s of cold startup per question. It sources .env, so the gateway sees your key.";
+    hint.textContent =
+      "Cerebras key ready; answers stream directly from the provider. The OpenClaw gateway is offline, which only affects the CLI fallback.";
   } else {
     hint.className = "pop-hint ok";
-    hint.textContent = "Warm OpenClaw gateway + Cerebras key ready.";
+    hint.textContent = "Cerebras key ready; answers stream directly from the provider.";
   }
 }
 
