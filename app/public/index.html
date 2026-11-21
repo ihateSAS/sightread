@@ -18,7 +18,8 @@
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
   }
   * { box-sizing: border-box; }
-  html { background: var(--void); }
+  html { background: var(--void); scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   body { background: transparent; }
   body {
     margin: 0;
@@ -53,6 +54,8 @@
   .shell { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 0 28px; }
 
   /* ---- glass bar: blurred, translucent, floats over the page ---- */
+  .brand { transition: opacity 160ms ease; }
+  .brand:hover { opacity: 0.78; }
   .bar {
     position: sticky; top: 12px; z-index: 10;
     max-width: 1060px; margin: 12px auto 0;
@@ -130,24 +133,32 @@
     border-radius: 10px;
     padding: 13px 15px;
     font-family: inherit; font-size: 15.5px; resize: vertical; outline: none;
-    transition: border-color 120ms ease, box-shadow 120ms ease;
+    transition:
+      border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
   }
   input { font-family: var(--mono); font-size: 13px; letter-spacing: -0.01em; }
   input::placeholder, textarea::placeholder { color: #5c6572; }
+  /* border + fill only — a box-shadow ring repaints on every frame */
   input:focus, textarea:focus {
-    border-color: rgba(4,124,252,0.55);
-    box-shadow: 0 0 0 3px rgba(4,124,252,0.12);
+    border-color: rgba(4,124,252,0.72);
+    background-color: rgba(8, 12, 20, 0.92);
   }
+  .console { transition: border-color 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+  .console:focus-within { border-color: rgba(4,124,252,0.34); }
   .row { display: flex; gap: 10px; align-items: center; margin-top: 18px; flex-wrap: wrap; }
   button {
     background: var(--accent); color: #04070d;
     border: 0; border-radius: 10px;
     padding: 12px 22px; font-weight: 650; font-size: 14px; cursor: pointer;
     letter-spacing: -0.005em;
-    transition: filter 120ms ease, transform 120ms ease;
+    transition:
+      transform 170ms cubic-bezier(0.16, 1, 0.3, 1),
+      filter 170ms cubic-bezier(0.16, 1, 0.3, 1);
   }
-  button:hover:not(:disabled) { filter: brightness(1.1); }
-  button:active:not(:disabled) { transform: translateY(1px); }
+  button:hover:not(:disabled) { filter: brightness(1.09); transform: translateY(-1px); }
+  button:active:not(:disabled) { transform: translateY(0) scale(0.982); transition-duration: 90ms; }
+  button:focus-visible { outline: 2px solid rgba(4,124,252,0.85); outline-offset: 2px; }
   button:disabled { opacity: 0.45; cursor: default; }
   button.ghost {
     background: transparent; color: #b9c2cf;
@@ -160,6 +171,19 @@
   }
   @keyframes p { 0%,100% { opacity: 0.2 } 50% { opacity: 1 } }
 
+  /* ---- motion: transform + opacity only, so the compositor carries it ---- */
+  @keyframes rise {
+    from { opacity: 0; transform: translate3d(0, 14px, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+  .bar-inner { animation: rise 520ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .hero > * { animation: rise 620ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .hero > *:nth-child(1) { animation-delay: 40ms; }
+  .hero > *:nth-child(2) { animation-delay: 110ms; }
+  .hero > *:nth-child(3) { animation-delay: 190ms; }
+  .console { animation: rise 620ms cubic-bezier(0.16, 1, 0.3, 1) 260ms both; }
+  .answer.on { animation: rise 300ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
   /* ---- answer ---- */
   .answer { display: none; margin-top: 34px; }
   .answer.on { display: block; }
@@ -171,6 +195,7 @@
   .stat b {
     display: block; font: 600 23px/1.15 var(--mono);
     color: var(--accent); letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums; /* the live timer must not jitter */
   }
   .stat span {
     font: 9.5px/1 var(--mono); color: var(--dim);
@@ -194,7 +219,9 @@
     font: 10.5px/1 var(--mono); color: #9fa8b6;
     border: 1px solid var(--line); border-radius: 999px; padding: 6px 11px;
     background: rgba(255,255,255,0.02);
+    transition: color 160ms ease, border-color 160ms ease;
   }
+  .chip:hover { color: #d6e6ff; border-color: rgba(4,124,252,0.45); }
   .err { color: #ff9a86; font-family: var(--mono); font-size: 13px; white-space: pre-wrap; }
 
   /* ---- the same glass, sitting at the foot ---- */
@@ -342,13 +369,17 @@ async function ask() {
   $("s-tools-list").innerHTML = "";
   setStatus("reading…", true);
 
+  // rAF instead of setInterval: the readout advances with the display, not in steps
   const t0 = performance.now();
-  const tick = setInterval(() => {
-    $("s-time").textContent = ((performance.now() - t0) / 1000).toFixed(1) + "s";
-  }, 100);
+  let raf = 0;
+  const tick = () => {
+    $("s-time").textContent = ((performance.now() - t0) / 1000).toFixed(2) + "s";
+    raf = requestAnimationFrame(tick);
+  };
+  tick();
 
   const { data } = await post("/api/ask", { repo, question });
-  clearInterval(tick);
+  cancelAnimationFrame(raf);
   $("ask").disabled = false;
 
   $("s-time").textContent = (data.elapsedMs / 1000).toFixed(2) + "s";
