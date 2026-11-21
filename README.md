@@ -221,17 +221,20 @@ Three different numbers live in this project, and they measure different things:
 
 | Path | What it measures | Fresh verified run |
 |---|---|---|
-| Speed Race panel (raw streaming) | first token, then a 600-token answer, same model both sides | 60.1s first token, 60.4s total, 9.9 tok/s wall (Kimi, congested minute) |
-| Speed Race panel, OpenRouter lane | the same 600 tokens, same model | 1.50s first token, 4.18s total, 143.6 tok/s wall (Kimi) |
+| Speed Race panel (raw streaming) | first token, then a 600-token answer, same model both sides | 337ms first token, 417ms total, 1,439 tok/s wall (qwen) |
+| Speed Race panel, OpenRouter lane | the same 600 tokens, same model | 565ms first token, 10.82s total, 56 tok/s wall (qwen) |
 | Ask panel, aided turn | graph parsed locally, then the first streamed chunk | 6.78s first token, 7.12s total (Kimi) |
 | Ask panel, unaided turn | same model, same question, no graph | 9.10s first token, 11.05s total (Kimi) |
 
-Treat these as one fresh run each, not a promise for every run. Every figure here
-is Kimi K3.1 Pro. The race pair was measured in a congested minute on purpose, to
-show the shape of the problem: the Cerebras lane spent 60.1s in a shared trial
-queue while the model's own compute for those 600 tokens was about 2s. In a quiet
-minute the Cerebras lane wins the race; in a spike it loses badly, and the wall
-tok/s column follows the queue rather than the silicon.
+Treat these as one fresh run each, not a promise for every run. The race rows are
+the qwen pair, measured Nov 21; the ask rows are Kimi. Race on Kimi instead by
+setting both lanes to the Kimi ids, but only when the queue is short.
+
+On Kimi in a congested minute the same race is much worse for the Cerebras lane:
+60.1s first token against OpenRouter's 1.50s, because the 600 tokens then wait in
+a shared trial queue whose compute is only about 2s. The wall tok/s column follows
+the queue rather than the silicon, which is why the panel shows first token and
+tok/s as separate fields and the docs tell you to check the queue first.
 
 The Ask panel streams directly from Cerebras, so its first-token number is the
 first delta the browser received, not an estimate. That is a measured choice:

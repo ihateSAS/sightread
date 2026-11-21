@@ -124,12 +124,23 @@ first, never the blind-spot count.
 
 ### Recording pre-flight (5 minutes, before you press record)
 
-0. **Check the queue first.** The trial endpoint is shared with every team, so the
-   same take can land in 0.9s or 12s. Run `node kimi-queue.mjs` and wait for
-   `queue` under about 300ms. It prints the queue, the compute time and the server
-   rate every 90 seconds; if `queue` is in the thousands, record later rather than
-   fight it. During a spike the aided answer is still faster than the unaided one,
-   so the comparison holds either way, but the seconds look bad.
+0. **Check the queue first, then pick the take you are shooting.** The trial
+   endpoint is shared with every team, so the same take can land in 0.9s or 70s.
+   Run `node kimi-queue.mjs` and wait for `queue` under about 3000ms. It prints
+   queue, compute and rate every 90 seconds. **Kimi take:** the queue is short and
+   the chip reads Kimi. **Fallback take:** the queue is long, the app hands the
+   turn to qwen inside the first-token budget, and the chip reads Qwen. Both are
+   honest; leave the app alone and shoot the fallback take if the queue will not
+   settle. Do not raise the budget to force a Kimi answer through a 70s queue,
+   because the answer then lands after the video ends.
+0b. **Make the race lanes match the chip.** They ship as the qwen pair right now,
+   because the Kimi trial queue is long and a race held in it would be a
+   three-minute beat. For a Kimi take, set them to the Kimi pair so the race is
+   still the same model on both lanes:
+   `CEREBRAS_RACE_MODEL=moonshotai-kimi-k3.1-pro-trial`,
+   `OPENROUTER_RACE_MODEL=moonshotai/kimi-k3.1-pro` in `.env`, then restart. Never
+   leave one lane Kimi and the other qwen; the panel does say when the lanes
+   differ, but a mixed race proves nothing about either.
 1. `npm start` (it loads `.env` and streams straight from Cerebras; the gateway
    is no longer on the Ask path). Open `http://localhost:8787`, click the header
    chip, and confirm it reads `Kimi K3.1 Pro cerebras` with no fallback banner.
@@ -192,12 +203,13 @@ first, never the blind-spot count.
 - **Nothing is claimed that the frame does not show.** If the race panel shows `–`
   for tok/s, say nothing about tok/s. An unmeasured number is the one thing a
   comment section will find.
-- **The race beat needs a quiet minute, more than any other beat.** Both lanes run
-  the same Kimi weights, so it is a fair comparison, but the Cerebras trial queue
-  is shared and one congested minute reads as `60.1s` against OpenRouter's `1.5s`.
-  Run the race once during pre-flight to see the current minute. Keep it only if
-  the Cerebras lane leaves first; cut it otherwise. During a spike the race
-  actively argues against the product, so do not "keep it for balance".
+- **The race beat needs a quiet minute.** Both lanes run the same weights, so it is
+  a fair comparison, but the Cerebras trial queue is shared and one congested
+  minute reads as `60.1s` against OpenRouter's `1.5s`. Run the race once during
+  pre-flight to see the current minute. Keep it only if the Cerebras lane leaves
+  first; cut it otherwise. During a spike the race actively argues against the
+  product, so do not "keep it for balance". On the qwen pair the Cerebras lane wins
+  by roughly 26x on total time, so a fallback take can keep the beat.
 - **If a beat overruns**, cut the race (0:44–0:53) and give the blind spot pane
   the nine seconds. The comparison is the product; the race is B-roll.
 - **Name Kimi only if the chip does.** The header chip reports the model that
