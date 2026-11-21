@@ -9,14 +9,18 @@ Built for the Cerebras × Kimi K3.1 Pro × OpenClaw weekend hackathon, Nov 21–
 ## The idea
 
 Most code assistants index a repository into chunks, embed them, and retrieve the
-few that look relevant to your question. Sightread doesn't retrieve — it **reads**.
+few that look relevant to your question. Sightread skips the index. It parses the
+repository's own imports, then hands a scoped OpenClaw agent the files a question
+actually needs, one tool call at a time.
 
-Kimi K3.1 Pro carries a 1M-token context, and Cerebras serves it fast enough that
-the whole repository, plus the agent's tool calls, fits inside one interaction.
-The answer arrives while you're still framing the follow-up question.
+The 1M-token window is headroom, not a paste buffer. Nothing ships the whole
+repository to the model: a turn carries a ~10k-token system prompt and the handful
+of files the agent chose to open. On Express the local graph covers 142 files and
+160 internal imports, so the agent starts from a real dependency list rather than
+a guess.
 
-That is the entire product thesis. Everything below exists to make it visible in
-under sixty seconds.
+That is the product thesis: the graph is computed, the reading is scoped, and the
+model narrates only what it can cite.
 
 ## What the model does not do
 
@@ -34,6 +38,16 @@ The model's job is to explain the list, not to produce it.
 
 That is the claim worth checking in a demo: every arrow on screen is a line you
 can open.
+
+### What the counts mean
+
+`142 files · 160 imports parsed` is the parser's inventory, not the repository's
+size. It counts source files only (JS, TS, Python, Go, Rust, and the rest of the
+extension list), skips `node_modules`, `.git`, build output, and any nested clone,
+and counts only relative imports that resolve to a file inside the repo. Bare
+packages and `node:` builtins are not edges, because they are not part of the
+change surface. A small app shows a small number, which is the point: every arrow
+on screen is a line you can open.
 
 The ask flow uses the same evidence, under a strict rule: a change verb alone buys
 nothing. The impact list is injected into the agent prompt inside a
@@ -130,8 +144,8 @@ SUBMISSION.md                   the Discord/Reddit/X submission copy
 
 ## Status
 
-Working: repo clone, page, provider config, skill, TPS harness. The server answers
-`/api/health` and serves the page.
+Working: repo clone, page, provider config written but not applied, skill, TPS
+harness. The server answers `/api/health` and serves the page.
 
 **Not yet proven:** no agent turn has completed end-to-end against Cerebras,
 because the API key is not in the environment. That is the next commit.

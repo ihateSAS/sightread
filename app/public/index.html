@@ -708,8 +708,9 @@
         Ask what a change would break and you get a list computed from the imports, not predicted by the model.
       </p>
       <p class="method">
-        Sightread clones the repo, has a scoped OpenClaw agent read the files it needs on Cerebras,
-        and parses the import graph locally. No embeddings, no index to build, nothing to guess at.
+        Sightread clones the repo and parses the import graph locally. A scoped OpenClaw agent then
+        reads only the files a question resolves to, on Cerebras, and answers with the lines it used.
+        No embeddings, no index, and no whole-repo paste.
       </p>
     </header>
 

@@ -14,13 +14,14 @@ Team Members: @ihateSAS
 
 Project Description:
 Sightread answers questions about a repository, and for change questions it also
-shows what that change would break. Point it at Express and it parses 142 files and
-160 imports before answering, so "if I change lib/application.js" comes back with a
-computed list of 100 downstream files, starting at lib/express.js line 18, instead of
-a model's guess. Every answer cites file and line, and the import graph is computed
-locally rather than predicted. This is a Cerebras interaction because one OpenClaw
-turn reads files one at a time: at <tok/s> the read finishes in <TTFT>s, where the
-same loop on a slow endpoint stalls long enough that people stop asking.
+shows what that change would break. Point it at Express and it parses the import
+graph across 142 files and 160 internal imports locally, then a scoped OpenClaw
+agent reads the handful of files the question resolves to. Ask about
+lib/application.js and it returns 100 downstream files, starting at lib/express.js
+line 18, computed from real import statements rather than predicted, with every
+answer citing file and line. The agent loop, not the model, is the slow part of a
+code question: at <tok/s> each scoped read returns in <TTFT>s, where the same loop
+on a slow endpoint is why people stop asking.
 
 GitHub Repository: https://github.com/ihateSAS/sightread
 Demo Video: <attach the 60s MP4>
@@ -54,7 +55,7 @@ on-screen values are known in advance. Total runtime 0:58, two seconds of slack.
 | Clock | On screen | Say | You do |
 |---|---|---|---|
 | **0:00–0:06** | Impact panel already populated, summary reading `application.js · high risk · 1 direct, 99 indirect · showing 14 of 100`; toggle reads `graph evidence on` | "This is Express. Change one file, and a hundred others sit downstream." | Nothing. Let the number sit still for a beat before you talk. |
-| **0:06–0:12** | Repo selected, impact header reading `142 files · 160 imports parsed` | "Sightread parsed 142 files and 160 imports before it answered anything." | Point at the count, then at the hot chips. |
+| **0:06–0:12** | Repo selected, impact header reading `142 files · 160 imports parsed` | "Sightread parsed 142 files and 160 imports before the agent read a single one." | Point at the count, then at the hot chips. |
 | **0:12–0:22** | Toggle flipped to `off`; question submitted: *If I change lib/application.js, what breaks?* | "First, the same question with the graph switched off. This is the model reading files on its own." | Untick at 0:12, submit by 0:14. |
 | **0:22–0:32** | Answer opens with `Graph evidence off. This is the model answering alone`; it names a handful of files | "It names a few, and it cannot know what it missed." | Let the answer sit. Do not read the file list aloud; the point is that it is short. |
 | **0:32–0:44** | Toggle back to `on`, ask again, panel refreshes to `1 direct, 99 indirect · showing 14 of 100`; first row `lib/express.js` with `imports it · line 18`; rows tagged `depth 2`, `depth 3` | "Now the parsed graph. One direct hit, `lib/express.js`, line 18. Ninety nine indirect, three levels deep. The model wrote the sentence. The graph wrote this list." | Retick, submit at 0:33, scroll slowly and stop on a `depth 3` row. |
@@ -93,8 +94,8 @@ I point Sightread at a repo and ask it a question. Every answer cites the file a
 line it came from, which is table stakes. The part I wanted was the other half:
 what breaks if I change this?
 
-On Express it parses 142 files and 160 imports, then resolves a change to
-lib/application.js into 100 downstream files. One direct hit at lib/express.js
+On Express it parses the import graph across 142 files and 160 internal imports,
+then resolves a change to lib/application.js into 100 downstream files. One direct hit at lib/express.js
 line 18, ninety nine indirect, three levels deep into the examples. That list is
 computed from the import graph, not written by the model, and you can switch the
 graph off in the UI to watch the model answer the same question on its own. The
