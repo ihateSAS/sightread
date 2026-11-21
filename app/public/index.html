@@ -7,8 +7,8 @@
 <link rel="icon" type="image/png" href="/icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@300;400;500&display=swap" rel="stylesheet" />
-<title>Sightread — ask a codebase anything</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<title>Sightread: ask a codebase anything</title>
 <style>
   :root {
     --void: #05070b;
@@ -30,8 +30,8 @@
     --warn: #fbbf24;
     --bad: #ff8f7a;
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --display: "Inter Tight", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    --sans: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --display: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
   * { box-sizing: border-box; }
@@ -110,8 +110,8 @@
     width: 1px; height: 14px; background: var(--line-strong); flex-shrink: 0;
   }
   .brand-tag {
-    font: 10.5px/1 var(--mono); color: var(--dim);
-    letter-spacing: 0.08em; text-transform: uppercase;
+    font: 600 10.5px/1 var(--sans); color: var(--dim);
+    letter-spacing: 0.09em; text-transform: uppercase;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
@@ -149,7 +149,7 @@
     padding: 0; border-radius: 0;
     background: none; border: 0;
     color: var(--dim);
-    font: 11px/1 var(--mono);
+    font: 500 12px/1 var(--sans);
     cursor: pointer;
     max-width: 100%;
     transition: color 160ms ease;
@@ -214,11 +214,10 @@
   /* ---- hero ---- */
   header.hero { padding: clamp(38px, 7vh, 76px) 0 clamp(24px, 3.6vh, 38px); }
   .eyebrow {
-    font: 10.5px/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase;
+    font: 600 10.5px/1 var(--sans); letter-spacing: 0.19em; text-transform: uppercase;
     color: var(--accent-bright); margin: 0 0 18px;
-    display: flex; align-items: center; gap: 10px;
+    display: block;
   }
-  .eyebrow::before { content: ""; width: 22px; height: 1px; background: currentColor; opacity: 0.75; }
   h1 {
     font-family: var(--display);
     font-size: clamp(36px, 5.6vw, 66px);
@@ -253,8 +252,8 @@
   }
   label {
     display: block;
-    font: 10px/1 var(--mono); color: var(--dim);
-    text-transform: uppercase; letter-spacing: 0.14em; margin: 0;
+    font: 600 10px/1 var(--sans); color: var(--dim);
+    text-transform: uppercase; letter-spacing: 0.15em; margin: 0;
   }
   .repo-row { display: flex; gap: 9px; align-items: stretch; }
   /* fields are rules under type, not boxes */
@@ -282,21 +281,30 @@
   .chips {
     display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 9px;
   }
+  /* reads as a link, not a pill: underline + pointer + colour on hover */
   .chip-btn {
     appearance: none;
     background: none; border: 0; border-radius: 0;
-    color: var(--dim);
+    color: var(--muted);
     padding: 2px 0;
-    font: 11.5px/1.2 var(--mono);
+    font: 500 13px/1.3 var(--sans);
     cursor: pointer;
-    transition: color 150ms ease;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+    text-decoration-color: rgba(255, 255, 255, 0.26);
+    transition: color 150ms ease, text-decoration-color 150ms ease;
   }
-  .chip-btn:hover { color: var(--text); transform: none; filter: none; }
+  .chip-btn:hover {
+    color: #ffffff; transform: none; filter: none;
+    text-decoration-color: var(--accent);
+  }
+  .chip-btn:focus-visible { outline: 2px solid rgba(4,124,252,0.85); outline-offset: 3px; }
   .chip-btn.active { color: var(--accent-bright); background: none; border: 0; }
-  .chip-btn + .chip-btn { padding-left: 14px; border-left: 1px solid rgba(255,255,255,0.07); }
+  .chip-btn + .chip-btn { padding-left: 16px; border-left: 1px solid rgba(255,255,255,0.07); }
   .chips-label {
-    font: 10px/1 var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em;
-    margin-right: 2px;
+    font: 600 10px/1 var(--sans); color: var(--dim); text-transform: uppercase; letter-spacing: 0.12em;
+    margin-right: 4px;
   }
 
   /* action bar */
@@ -323,7 +331,11 @@
     padding: 8px 0;
     font-weight: 500;
     white-space: nowrap;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-color: rgba(255, 255, 255, 0.26);
   }
+  button.ghost:hover:not(:disabled) { text-decoration-color: var(--accent); }
   button.ghost:hover:not(:disabled) {
     color: var(--text);
     background: none;
@@ -342,7 +354,7 @@
   }
   .seg button {
     appearance: none; border: 0; background: transparent; color: var(--dim);
-    font: 11px/1 var(--mono); padding: 4px 0; border-radius: 0; cursor: pointer;
+    font: 500 12px/1 var(--sans); padding: 4px 0; border-radius: 0; cursor: pointer;
     position: relative;
     transition: color 150ms ease;
   }
@@ -545,7 +557,7 @@
   .foot-inner {
     display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
     padding: 16px 0 0;
-    font: 10.5px/1.6 var(--mono); color: #6f7887; letter-spacing: 0.05em;
+    font: 400 11.5px/1.6 var(--sans); color: #6f7887; letter-spacing: 0.01em;
   }
 
   @keyframes rise {
@@ -634,8 +646,8 @@
     <header class="hero">
       <h1>Ask a codebase<br /><em>anything.</em></h1>
       <p class="sub">
-        Every answer cites the exact file and line it came from — driven by a scoped
-        OpenClaw agent reading source files directly on Cerebras instead of guessing from fragments.
+        Every answer cites the exact file and line it came from, because a scoped
+        OpenClaw agent reads source files directly on Cerebras instead of guessing from fragments.
       </p>
     </header>
 
@@ -666,7 +678,7 @@
 
       <div class="row">
         <div class="row-left">
-          <button id="ask" class="primary" type="button">Ask <span class="kbd">⌘↵</span></button>
+          <button id="ask" class="primary" type="button">Ask</button>
           <div class="seg" role="group" aria-label="Thinking effort">
             <button type="button" class="active" data-thinking="low">low</button>
             <button type="button" data-thinking="medium">medium</button>
@@ -710,7 +722,7 @@
   <section class="view" id="view-race">
     <div class="race-head">
       <div>
-        <p class="eyebrow">Side-by-side streaming benchmark</p>
+        <p class="eyebrow">Live streaming benchmark</p>
         <h2>Same model. Same prompt. Two kinds of silicon.</h2>
       </div>
       <div class="race-controls">
@@ -773,7 +785,7 @@
 <footer class="foot">
   <div class="foot-inner">
     <span>MIT · Sightread · Cerebras × Kimi K3.1 Pro × OpenClaw</span>
-    <span>answers cite exact source lines — click any citation to inspect</span>
+    <span>answers cite exact source lines; click any citation to inspect</span>
   </div>
 </footer>
 
@@ -1284,11 +1296,11 @@ async function loadRaceState() {
   const b = $("race-banner");
   b.textContent = "";
   if (s.cerebras.ready && s.openrouter.ready) {
-    b.innerHTML = `Both providers live — <b>${esc(s.cerebras.model)}</b> vs <b>${esc(s.openrouter.model)}</b>`;
+    b.innerHTML = `Both providers live. <b>${esc(s.cerebras.model)}</b> vs <b>${esc(s.openrouter.model)}</b>`;
   } else if (s.cerebras.ready && !s.openrouter.ready) {
-    b.innerHTML = `Cerebras live (<b>${esc(s.cerebras.model)}</b>) · OpenRouter not configured — add <code>OPENROUTER_API_KEY</code> to <code>.env</code> for a live opponent.`;
+    b.innerHTML = `Cerebras live (<b>${esc(s.cerebras.model)}</b>). OpenRouter not configured: add <code>OPENROUTER_API_KEY</code> to <code>.env</code> for a live opponent.`;
   } else {
-    b.innerHTML = `Waiting on keys — set <code>CEREBRAS_API_KEY</code>${s.openrouter.ready ? "" : " and <code>OPENROUTER_API_KEY</code>"} in <code>.env</code>.`;
+    b.innerHTML = `Waiting on keys. Set <code>CEREBRAS_API_KEY</code>${s.openrouter.ready ? "" : " and <code>OPENROUTER_API_KEY</code>"} in <code>.env</code>.`;
   }
 }
 
@@ -1315,7 +1327,7 @@ function judgeRace() {
   if (!c || !o) {
     if (c && !raceState.openrouter?.running && !o) {
       w.className = "winner muted";
-      w.textContent = `Unopposed — Cerebras answered in ${fmtSec(c.totalMs)}${c.tps ? ` (${c.tps.toFixed(0)} tok/s)` : ""}`;
+      w.textContent = `Unopposed. Cerebras answered in ${fmtSec(c.totalMs)}${c.tps ? ` (${c.tps.toFixed(0)} tok/s)` : ""}`;
     }
     return;
   }
