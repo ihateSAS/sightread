@@ -30,13 +30,19 @@
 
   /* ---- backdrop: derived image, never competing with the type ---- */
   .backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
-  .backdrop img {
+  .backdrop img, .backdrop video {
     position: absolute; inset: 0;
     width: 100%; height: 100%;
     object-fit: cover; object-position: 58% 38%;
+    z-index: 0;
+  }
+  .backdrop video { z-index: 1; }
+  /* reduced motion: the still carries the page, the loop never plays */
+  @media (prefers-reduced-motion: reduce) {
+    .backdrop video { display: none; }
   }
   .backdrop::after {
-    content: ""; position: absolute; inset: 0;
+    content: ""; position: absolute; inset: 0; z-index: 2;
     background:
       /* left scrim: the type column stays dark, the arc stays bright on the right */
       linear-gradient(90deg, rgba(5,7,11,0.90) 0%, rgba(5,7,11,0.62) 34%, rgba(5,7,11,0.18) 66%, rgba(5,7,11,0) 100%),
@@ -224,7 +230,11 @@
 </head>
 <body>
 <div class="backdrop">
-  <img src="/bg.webp?v=6" alt="" aria-hidden="true" decoding="async" fetchpriority="high" />
+  <img src="/bg.webp?v=7" alt="" aria-hidden="true" decoding="async" fetchpriority="high" />
+  <video autoplay muted loop playsinline preload="auto"
+         poster="/bg.webp?v=7" aria-hidden="true" tabindex="-1">
+    <source src="/bg-loop.mp4?v=1" type="video/mp4" />
+  </video>
 </div>
 
 <header class="bar">
