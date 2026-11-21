@@ -900,18 +900,15 @@ async function loadRepos() {
     btn.type = "button";
     btn.className = "chip-btn";
     btn.textContent = r.name;
+    // the resolved path stays internal: the field is where you paste a URL,
+    // not where we print someone's home directory
     btn.addEventListener("click", () => {
       currentRepo = r.path;
-      $("repo").value = r.path;
+      $("repo").value = "";
       host.querySelectorAll(".chip-btn").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
-      setStatus(`selected ${r.name}`);
+      setStatus(`using ${r.name}`);
     });
-    if (idx === 0 && !$("repo").value.trim()) {
-      currentRepo = r.path;
-      $("repo").value = r.path;
-      btn.classList.add("active");
-    }
     host.appendChild(btn);
   });
 }
@@ -1154,8 +1151,8 @@ $("prep").addEventListener("click", async () => {
   $("prep").disabled = false;
   if (!ok) return setStatus(`clone failed: ${data.error || "unknown"}`);
   currentRepo = data.path;
-  $("repo").value = data.path;
-  setStatus(data.cloned ? `cloned ${data.slug}` : `already cloned: ${data.slug}`);
+  $("repo").value = "";
+  setStatus(data.cloned ? `cloned ${data.slug}, ready` : `already cloned: ${data.slug}`);
   loadRepos();
 });
 
