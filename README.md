@@ -221,13 +221,17 @@ Three different numbers live in this project, and they measure different things:
 
 | Path | What it measures | Fresh verified run |
 |---|---|---|
-| Speed Race panel (raw streaming) | first token, then a 600-token answer, same model both sides | 190ms first token, 405ms total, 1,482 tok/s wall (qwen) |
-| Speed Race panel, OpenRouter lane | the same 600 tokens, same model | 1,188ms first token, 2.55s total, 236 tok/s wall (qwen) |
+| Speed Race panel (raw streaming) | first token, then a 600-token answer, same model both sides | 60.1s first token, 60.4s total, 9.9 tok/s wall (Kimi, congested minute) |
+| Speed Race panel, OpenRouter lane | the same 600 tokens, same model | 1.50s first token, 4.18s total, 143.6 tok/s wall (Kimi) |
 | Ask panel, aided turn | graph parsed locally, then the first streamed chunk | 6.78s first token, 7.12s total (Kimi) |
 | Ask panel, unaided turn | same model, same question, no graph | 9.10s first token, 11.05s total (Kimi) |
 
-Treat these as one fresh run each, not a promise for every run. The race numbers
-are on the qwen pair; the ask numbers are on Kimi.
+Treat these as one fresh run each, not a promise for every run. Every figure here
+is Kimi K3.1 Pro. The race pair was measured in a congested minute on purpose, to
+show the shape of the problem: the Cerebras lane spent 60.1s in a shared trial
+queue while the model's own compute for those 600 tokens was about 2s. In a quiet
+minute the Cerebras lane wins the race; in a spike it loses badly, and the wall
+tok/s column follows the queue rather than the silicon.
 
 The Ask panel streams directly from Cerebras, so its first-token number is the
 first delta the browser received, not an estimate. That is a measured choice:

@@ -20,12 +20,16 @@ export function getSides() {
 }
 
 // Providers prefix the same weights differently (gpt-oss-120b vs
-// openai/gpt-oss-120b), so compare the model name without its namespace.
+// openai/gpt-oss-120b), so compare the model name without its namespace. Cerebras
+// also serves the event build under a `-trial` suffix, which is the same weights
+// as the hosted id, so the suffix is not a difference either.
 const baseModel = (id) =>
   String(id || "")
     .split("/")
     .pop()
     .toLowerCase()
+    .replace(/^moonshotai-/, "")
+    .replace(/[-_](trial|test)$/, "")
     .replace(/[^a-z0-9.]/g, "");
 
 export function getRaceState() {

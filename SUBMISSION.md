@@ -162,7 +162,7 @@ first, never the blind-spot count.
 | **0:12–0:24** | Question submitted from the left column: *If I change lib/application.js, what breaks?* Pressing Ask stops the roaming (dot greys). Graph answer appears below, then `Without the graph` starts filling underneath | Callout on the header chip: `Answering model: <chip text>. Streaming from Cerebras.` Live timer readout top-right counting up from 0:00. Step `3 / 5`. | "Ask it once and it answers twice. First with the parsed graph in the prompt." | Submit at 0:12. Let the first answer land without narrating the file list. |
 | **0:24–0:36** | Blind spot pane filled: `N of 100 downstream files named by the model alone · M with the graph`, plus the unaided answer | Callout box on the count, large type: `Model alone: N of 100. With the graph: M of 100.` Progress bar 65%. Step `4 / 5`. | "Then the same model with no graph. That count is how many of the graph's hundred it found by itself." | Point at the count, then let the unaided text sit. Read only numbers on screen. |
 | **0:36–0:44** | Impact panel: `1 direct, 99 indirect · showing 14 of 100`; first row `lib/express.js` with `imports it · line 18`; rows tagged `depth 2`, `depth 3` | Callout with pointer line on the first row: `lib/express.js:18. A real import line you can open.` | "Every one of those edges is a parsed import you can open. The model wrote the sentence. The graph wrote the list." | Scroll slowly and stop on a `depth 3` row. |
-| **0:44–0:53** | Race panel, `1..1000 TPS Test` preset, 600 tokens, both providers streaming | Callout on the race timers: `Same model, same prompt. Timed from the same start.` Progress bar 85%. | "Same model, same prompt, two providers, timed from the same start." | At 0:45 click the `1..1000 TPS Test` preset, then Start Race. The fresh verified run was 0.41s vs 2.55s; say only what the panel shows. |
+| **0:44–0:53** | Race panel, `1..1000 TPS Test` preset, 600 tokens, both providers streaming | Callout on the race timers: `Same model, same prompt. Timed from the same start.` Progress bar 85%. | "Same model, same prompt, two providers, timed from the same start." | At 0:45 click the `1..1000 TPS Test` preset, then Start Race. Both lanes now run Kimi K3.1 Pro, so the lane labels are the only difference on screen. Say only what the panel shows. |
 | **0:53–0:58** | Pull back to the impact panel | End card: `Sightread. Ask your repo. See what your change breaks.` Repo URL small underneath. Progress bar 100%. | "Sightread. Ask your repo, then see what your change breaks." | Stop moving. Repo URL goes in the caption and end card, never spoken. |
 
 ### Rules for the edit
@@ -170,13 +170,21 @@ first, never the blind-spot count.
 - **Nothing is claimed that the frame does not show.** If the race panel shows `–`
   for tok/s, say nothing about tok/s. An unmeasured number is the one thing a
   comment section will find.
+- **The race beat needs a quiet minute, more than any other beat.** Both lanes run
+  the same Kimi weights, so it is a fair comparison, but the Cerebras trial queue
+  is shared and one congested minute reads as `60.1s` against OpenRouter's `1.5s`.
+  Run the race once during pre-flight to see the current minute. Keep it only if
+  the Cerebras lane leaves first; cut it otherwise. During a spike the race
+  actively argues against the product, so do not "keep it for balance".
 - **If a beat overruns**, cut the race (0:44–0:53) and give the blind spot pane
   the nine seconds. The comparison is the product; the race is B-roll.
 - **Name Kimi only if the chip does.** The header chip reports the model that
   will answer, so a Kimi take needs `Kimi K3.1 Pro` in the chip and no fallback
   banner. Otherwise say Cerebras and leave the model out of the claim.
 - **If the first ask stalls past four seconds**, keep talking through the spinner.
-  Dead air reads as a broken product; a spinner while you explain does not.
+  Dead air reads as a broken product; a spinner while you explain does not. The
+  first-token budget normally hands the turn to the fallback inside a couple of
+  seconds, so a long stall means the budget is switched off (see step 0).
 - **If the model happens to name a long list**, drop that beat and open on the
   graph instead. Do not let the video imply the model guessed two files when it
   guessed ten.

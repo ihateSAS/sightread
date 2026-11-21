@@ -778,7 +778,7 @@
       <div class="row">
         <div class="row-left">
           <button id="ask" class="primary" type="button">Ask</button>
-          <div class="seg" role="group" aria-label="Thinking effort">
+          <div class="seg" role="group" aria-label="Thinking effort" title="Thinking effort sent to Kimi. low is the fastest level it accepts; none is rejected. Higher levels think longer before the answer starts.">
             <button type="button" class="active" data-thinking="low">low</button>
             <button type="button" data-thinking="medium">medium</button>
             <button type="button" data-thinking="high">high</button>
@@ -813,6 +813,7 @@
         <div class="stats">
           <div class="stat"><b id="s-ttft">–</b><span>first token</span></div>
           <div class="stat"><b id="s-time">–</b><span>wall clock</span></div>
+          <div class="stat"><b id="s-think">–</b><span>reasoning tok</span></div>
           <div class="stat"><b id="s-turns">–</b><span>agent turns</span></div>
           <div class="stat"><b id="s-tools">–</b><span>tool calls</span></div>
           <div class="stat"><b id="s-tps">–</b><span>tok/s</span></div>
@@ -1529,7 +1530,21 @@ function paintResult(data) {
   // an answer, so show a dash instead of a number that reads as latency.
   const failed = data.ok === false || Boolean(data.error);
   $("s-ttft").textContent = !failed && data.ttftMs != null ? (data.ttftMs / 1000).toFixed(2) + "s" : "–";
+  // Kimi thinks before it writes. The first reasoning delta is not the answer,
+  // so it stays out of the headline number and shows on hover instead.
+  const firstDelta = data.phases?.promptToFirstDeltaMs;
+  $("s-ttft").title =
+    !failed && firstDelta != null && data.ttftMs != null && firstDelta < data.ttftMs
+      ? `thinking started at ${(firstDelta / 1000).toFixed(2)}s, answer text at ${(data.ttftMs / 1000).toFixed(2)}s`
+      : "";
   $("s-time").textContent = !failed && data.elapsedMs != null ? (data.elapsedMs / 1000).toFixed(2) + "s" : "–";
+  // Thinking is on when this is above zero: reasoning tokens are billed as output.
+  const reasoning = data.usage?.reasoning ?? data.phases?.reasoningTokens ?? null;
+  $("s-think").textContent =
+    !failed && typeof reasoning === "number" ? reasoning.toLocaleString() : "–";
+  $("s-think").title = data.phases?.reasoningEffort
+    ? `reasoning_effort: ${data.phases.reasoningEffort}`
+    : "";
   $("s-turns").textContent = data.assistantTurns ?? "–";
   $("s-tools").textContent = data.toolSummary?.calls ?? "–";
   if (data.usage?.output && data.elapsedMs) {
@@ -1612,7 +1627,7 @@ async function ask() {
   $("answer").classList.add("on");
   $("proof").style.display = "none";
   $("answer-layout").classList.remove("with-proof");
-  ["s-ttft", "s-time", "s-turns", "s-tools", "s-tps", "s-tokens"].forEach((id) => ($(id).textContent = "–"));
+  ["s-ttft", "s-time", "s-think", "s-turns", "s-tools", "s-tps", "s-tokens"].forEach((id) => ($(id).textContent = "–"));
   $("s-body").innerHTML = "";
   $("s-tools-list").innerHTML = "";
   blindspotSeq += 1;

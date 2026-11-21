@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { providerChain, streamProvider } from "../app/lib/provider.mjs";
-import { contentStream, startFakeProvider } from "./fake-provider.mjs";
+import { providerChain, reasoningEffortFor, streamProvider } from "../app/lib/provider.mjs";
+import { contentStream, sse, startFakeProvider } from "./fake-provider.mjs";
 
 // Every test points the provider at a local stub. No real key, no network.
 function useProviderEnv(t, url) {
@@ -78,6 +78,73 @@ test("qwen runs with reasoning off and kimi at low effort, others keep the defau
   assert.equal(qwen.body.reasoning_effort, "none");
 });
 
+test("the page's thinking level reaches Kimi, clamped to values the endpoint accepts", async (t) => {
+  const provider = await startFakeProvider(() => ({ stream: contentStream("ok") }));
+  t.after(() => provider.close());
+  useProviderEnv(t, provider.url);
+
+  const ask = (thinking) =>
+    streamProvider({ model: "cerebras/moonshotai-kimi-k3.1-pro-trial", thinking, prompt: "hi" });
+
+  await ask("high");
+  assert.equal(provider.requests.at(-1).body.reasoning_effort, "high");
+  await ask("medium");
+  assert.equal(provider.requests.at(-1).body.reasoning_effort, "medium");
+  // Anything the endpoint cannot express becomes its fastest accepted value.
+  for (const value of ["none", "off", "", undefined]) {
+    await ask(value);
+    assert.equal(provider.requests.at(-1).body.reasoning_effort, "low", `clamped ${value}`);
+  }
+
+  // A model with no thinking control never gets the field at all.
+  await streamProvider({ model: "cerebras/gpt-oss-120b", thinking: "high", prompt: "hi" });
+  assert.equal("reasoning_effort" in provider.requests.at(-1).body, false);
+});
+
+test("reasoningEffortFor never sends none to Kimi", () => {
+  assert.equal(reasoningEffortFor("moonshotai-kimi-k3.1-pro-trial", "none"), "low");
+  assert.equal(reasoningEffortFor("moonshotai-kimi-k3.1-pro-trial", "max"), "max");
+  assert.equal(reasoningEffortFor("qwen-3.8-27b", "high"), "none");
+  assert.equal(reasoningEffortFor("gpt-oss-120b", "high"), null);
+});
+
+test("thinking is timed and counted separately from the answer", async (t) => {
+  const provider = await startFakeProvider(() => ({
+    stream: [
+      sse({ choices: [{ delta: { reasoning: "weighing the imports" } }] }),
+      sse({ choices: [{ delta: { reasoning: " and the callers" } }] }),
+      sse({ choices: [{ delta: { content: "lib/express.js:23 imports it." } }] }),
+      sse({
+        choices: [{ delta: {}, finish_reason: "stop" }],
+        usage: {
+          prompt_tokens: 40,
+          completion_tokens: 60,
+          completion_tokens_details: { reasoning_tokens: 48 },
+        },
+      }),
+      "data: [DONE]\n\n",
+    ],
+  }));
+  t.after(() => provider.close());
+  useProviderEnv(t, provider.url);
+
+  const chunks = [];
+  const out = await streamProvider({
+    model: "cerebras/moonshotai-kimi-k3.1-pro-trial",
+    thinking: "low",
+    prompt: "hi",
+    onChunk: (chunk) => chunks.push(chunk),
+  });
+
+  // Thinking is not the answer: the reasoning deltas never reach the page body.
+  assert.deepEqual(chunks, ["lib/express.js:23 imports it."]);
+  assert.equal(out.text, "lib/express.js:23 imports it.");
+  assert.equal(out.phases.reasoningEffort, "low");
+  assert.equal(out.phases.reasoningTokens, 48);
+  assert.deepEqual(out.phases.usage, { input: 40, output: 60, reasoning: 48 });
+  assert.ok(out.phases.promptToFirstDeltaMs <= out.phases.promptToFirstChunkMs);
+});
+
 test("a model that streams no text is skipped, not returned empty", async (t) => {
   const provider = await startFakeProvider(({ body }) =>
     body.model === "kimi-k3.1-pro"
@@ -138,4 +205,26 @@ test("a stalled provider aborts instead of hanging the turn", async (t) => {
     /timeout|abort/i
   );
   assert.ok(Date.now() - started < 3_000, "did not wait for the stall to finish");
+});
+
+test("a queued primary is abandoned for the next model instead of waited on", async (t) => {
+  const provider = await startFakeProvider(async ({ body }) => {
+    if (body.model === "kimi-k3.1-pro") {
+      await new Promise((resolve) => setTimeout(resolve, 5_000));
+      return { stream: contentStream("queued too long") };
+    }
+    return { stream: contentStream("answered instead") };
+  });
+  t.after(() => provider.close());
+  useProviderEnv(t, provider.url);
+
+  const started = Date.now();
+  const out = await streamProvider({
+    model: "cerebras/kimi-k3.1-pro",
+    prompt: "hi",
+    timeoutMs: 10_000,
+  }).finally(() => {});
+  assert.equal(out.text, "answered instead");
+  assert.equal(out.model, "qwen-3.8-27b");
+  assert.ok(Date.now() - started < 4_000, "did not wait out the queue");
 });
