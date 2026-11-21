@@ -3,122 +3,251 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Sightread</title>
+<meta name="theme-color" content="#05070b" />
+<title>Sightread — ask a codebase anything</title>
 <style>
   :root {
-    --bg: #0b0c0e;
-    --panel: #121417;
-    --line: #23262b;
-    --text: #e8eaed;
-    --dim: #8b929c;
-    --accent: #d7ff3e;
+    --void: #05070b;
+    --ink: #0a0d13;
+    --line: rgba(255, 255, 255, 0.10);
+    --line-strong: rgba(255, 255, 255, 0.18);
+    --text: #eef1f6;
+    --dim: #8b94a3;
+    --accent: #047cfc;
+    --accent-soft: rgba(4, 124, 252, 0.14);
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
   }
   * { box-sizing: border-box; }
+  html { background: var(--void); }
+  body { background: transparent; }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    margin: 0;
+    color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
     -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
   }
-  main { max-width: 860px; margin: 0 auto; padding: 64px 24px 120px; }
-  header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
-  h1 { font-size: 27px; letter-spacing: -0.02em; margin: 0; font-weight: 600; }
-  .tag { font: 11px/1 var(--mono); color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; }
-  .sub { color: var(--dim); margin: 0 0 34px; max-width: 62ch; }
-  .field { margin-bottom: 14px; }
-  label { display: block; font: 11px/1 var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 8px; }
+
+  /* ---- backdrop: derived image, never competing with the type ---- */
+  .backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  .backdrop img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: 58% 38%;
+  }
+  .backdrop::after {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(135% 85% at 50% 12%, rgba(5,7,11,0.10) 0%, rgba(5,7,11,0.42) 52%, rgba(5,7,11,0.86) 100%),
+      linear-gradient(180deg, rgba(5,7,11,0.42) 0%, rgba(5,7,11,0.16) 34%, rgba(5,7,11,0.78) 82%, var(--void) 100%);
+  }
+
+  .shell { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---- nav: almost no chrome ---- */
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 26px 0 0;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+  .brand img { width: 26px; height: 26px; border-radius: 7px; display: block; }
+  .brand span { font-size: 15px; font-weight: 600; letter-spacing: -0.012em; }
+  .stack {
+    font: 10.5px/1 var(--mono); color: var(--dim);
+    letter-spacing: 0.13em; text-transform: uppercase;
+  }
+
+  /* ---- hero ---- */
+  header.hero { padding: clamp(56px, 11vh, 118px) 0 clamp(34px, 5vh, 54px); }
+  .eyebrow {
+    font: 10.5px/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 26px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .eyebrow::before {
+    content: ""; width: 22px; height: 1px; background: currentColor; opacity: 0.7;
+  }
+  h1 {
+    font-size: clamp(38px, 6.4vw, 74px);
+    font-weight: 300;
+    letter-spacing: -0.035em;
+    line-height: 1.02;
+    margin: 0 0 22px;
+    max-width: 17ch;
+  }
+  h1 em { font-style: normal; color: var(--dim); }
+  .sub {
+    color: #a7b0bf; margin: 0; max-width: 56ch;
+    font-size: clamp(15px, 1.4vw, 17.5px); line-height: 1.6;
+  }
+
+  /* ---- the ask console ---- */
+  .console {
+    margin-top: clamp(34px, 5vh, 52px);
+    background: linear-gradient(180deg, rgba(14,18,26,0.86), rgba(8,11,17,0.92));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px;
+    backdrop-filter: blur(14px) saturate(115%);
+    box-shadow: 0 30px 80px -40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.045);
+  }
+  .field + .field { margin-top: 16px; }
+  label {
+    display: block;
+    font: 10px/1 var(--mono); color: var(--dim);
+    text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 9px;
+  }
   input, textarea {
-    width: 100%; background: var(--panel); color: var(--text);
-    border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px;
-    font-family: inherit; font-size: 15px; resize: vertical; outline: none;
+    width: 100%;
+    background: rgba(5,7,11,0.72);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 13px 15px;
+    font-family: inherit; font-size: 15.5px; resize: vertical; outline: none;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
   }
-  input { font-family: var(--mono); font-size: 13px; }
-  input:focus, textarea:focus { border-color: #3a3f47; }
-  .row { display: flex; gap: 10px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+  input { font-family: var(--mono); font-size: 13px; letter-spacing: -0.01em; }
+  input::placeholder, textarea::placeholder { color: #5c6572; }
+  input:focus, textarea:focus {
+    border-color: rgba(4,124,252,0.55);
+    box-shadow: 0 0 0 3px rgba(4,124,252,0.12);
+  }
+  .row { display: flex; gap: 10px; align-items: center; margin-top: 18px; flex-wrap: wrap; }
   button {
-    background: var(--accent); color: #0b0c0e; border: 0; border-radius: 9px;
-    padding: 11px 20px; font-weight: 600; font-size: 14px; cursor: pointer;
+    background: var(--accent); color: #04070d;
+    border: 0; border-radius: 10px;
+    padding: 12px 22px; font-weight: 650; font-size: 14px; cursor: pointer;
+    letter-spacing: -0.005em;
+    transition: filter 120ms ease, transform 120ms ease;
   }
+  button:hover:not(:disabled) { filter: brightness(1.1); }
+  button:active:not(:disabled) { transform: translateY(1px); }
   button:disabled { opacity: 0.45; cursor: default; }
-  button.ghost { background: transparent; color: var(--dim); border: 1px solid var(--line); font-weight: 500; }
-  .meta { font: 12px/1 var(--mono); color: var(--dim); }
-  .answer {
-    margin-top: 40px; border-top: 1px solid var(--line); padding-top: 26px;
-    display: none;
+  button.ghost {
+    background: transparent; color: #b9c2cf;
+    border: 1px solid var(--line-strong); font-weight: 500;
   }
+  .meta { font: 11.5px/1.4 var(--mono); color: var(--dim); }
+  .spin {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); animation: p 1s infinite ease-in-out; margin-right: 7px;
+  }
+  @keyframes p { 0%,100% { opacity: 0.2 } 50% { opacity: 1 } }
+
+  /* ---- answer ---- */
+  .answer { display: none; margin-top: 34px; }
   .answer.on { display: block; }
-  .stats { display: flex; gap: 22px; align-items: baseline; margin-bottom: 20px; flex-wrap: wrap; }
-  .stat b { display: block; font: 600 24px/1.1 var(--mono); color: var(--accent); letter-spacing: -0.02em; }
-  .stat span { font: 10px/1 var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; }
-  .body { white-space: pre-wrap; font-size: 15.5px; }
+  .stats {
+    display: flex; gap: 34px; align-items: baseline;
+    margin-bottom: 24px; flex-wrap: wrap;
+    padding-bottom: 20px; border-bottom: 1px solid var(--line);
+  }
+  .stat b {
+    display: block; font: 600 23px/1.15 var(--mono);
+    color: var(--accent); letter-spacing: -0.02em;
+  }
+  .stat span {
+    font: 9.5px/1 var(--mono); color: var(--dim);
+    text-transform: uppercase; letter-spacing: 0.13em;
+  }
+  .body {
+    white-space: pre-wrap; font-size: 16px; line-height: 1.65;
+    color: #dfe5ee; max-width: 74ch;
+  }
+  /* citation highlight — the logo's blue, applied where it means something */
   .body code, code {
-    font-family: var(--mono); font-size: 13px; background: #1b1e22;
-    padding: 1px 5px; border-radius: 4px; color: #cfe0ff;
+    font-family: var(--mono); font-size: 12.8px;
+    background: var(--accent-soft);
+    border: 1px solid rgba(4,124,252,0.30);
+    color: #86bdff;
+    padding: 1.5px 6px; border-radius: 5px;
+    white-space: nowrap;
   }
   .tools { margin-top: 26px; display: flex; gap: 7px; flex-wrap: wrap; }
   .chip {
-    font: 11px/1 var(--mono); color: var(--dim); border: 1px solid var(--line);
-    border-radius: 999px; padding: 6px 11px;
+    font: 10.5px/1 var(--mono); color: #9fa8b6;
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 11px;
+    background: rgba(255,255,255,0.02);
   }
-  .err { color: #ff8f7a; font-family: var(--mono); font-size: 13px; white-space: pre-wrap; }
-  .spin { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: p 1s infinite ease-in-out; }
-  @keyframes p { 0%,100% { opacity: 0.25 } 50% { opacity: 1 } }
+  .err { color: #ff9a86; font-family: var(--mono); font-size: 13px; white-space: pre-wrap; }
+
+  footer {
+    margin-top: 96px; padding: 26px 0 46px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    font: 10.5px/1.6 var(--mono); color: #5f6875; letter-spacing: 0.06em;
+  }
+  @media (max-width: 640px) {
+    .shell { padding: 0 18px; }
+    .console { padding: 16px; border-radius: 14px; }
+    .stats { gap: 22px; }
+    nav .stack { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <header>
-    <h1>Sightread</h1>
-    <span class="tag">Kimi K3.1 Pro · Cerebras · OpenClaw</span>
+<div class="backdrop">
+  <img src="/bg.webp?v=3" alt="" aria-hidden="true" decoding="async" fetchpriority="high" />
+</div>
+
+<div class="shell">
+  <nav>
+    <a class="brand" href="/"><span>Sightread</span></a>
+    <span class="stack">Kimi K3.1 Pro · Cerebras · OpenClaw</span>
+  </nav>
+
+  <header class="hero">
+    <p class="eyebrow">Reads the repository, not an index</p>
+    <h1>Ask a codebase<br /><em>anything.</em></h1>
+    <p class="sub">
+      Every answer cites the exact file and line it came from — because the model
+      reads the source itself instead of guessing from retrieved fragments.
+    </p>
   </header>
-  <p class="sub">Ask a codebase anything. Every answer cites the file and line it came from.</p>
 
-  <div class="field">
-    <label for="repo">repository</label>
-    <input id="repo" placeholder="https://github.com/owner/name  or  /path/to/local/repo" spellcheck="false" />
-  </div>
-
-  <div class="field">
-    <label for="q">question</label>
-    <textarea id="q" rows="3" placeholder="Where does auth expire, and what breaks if I change it?"></textarea>
-  </div>
-
-  <div class="row">
-    <button id="ask">Ask</button>
-    <button id="prep" class="ghost">Clone repo</button>
-    <span class="meta" id="status"></span>
-  </div>
+  <section class="console">
+    <div class="field">
+      <label for="repo">repository</label>
+      <input id="repo" placeholder="https://github.com/owner/name   or   /path/to/local/repo" spellcheck="false" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="q">question</label>
+      <textarea id="q" rows="3" placeholder="Where does auth expire, and what breaks if I change it?"></textarea>
+    </div>
+    <div class="row">
+      <button id="ask">Ask</button>
+      <button id="prep" class="ghost">Clone repo</button>
+      <span class="meta" id="status"></span>
+    </div>
+  </section>
 
   <section class="answer" id="answer">
     <div class="stats">
-      <div class="stat">
-        <b id="s-time">–</b>
-        <span>wall clock</span>
-      </div>
-      <div class="stat">
-        <b id="s-turns">–</b>
-        <span>agent turns</span>
-      </div>
-      <div class="stat">
-        <b id="s-tools">–</b>
-        <span>tool calls</span>
-      </div>
-      <div class="stat">
-        <b id="s-tps">–</b>
-        <span>tok/s</span>
-      </div>
+      <div class="stat"><b id="s-time">–</b><span>wall clock</span></div>
+      <div class="stat"><b id="s-turns">–</b><span>agent turns</span></div>
+      <div class="stat"><b id="s-tools">–</b><span>tool calls</span></div>
+      <div class="stat"><b id="s-tps">–</b><span>tok/s</span></div>
     </div>
     <div class="body" id="s-body"></div>
     <div class="tools" id="s-tools-list"></div>
   </section>
-</main>
+
+  <footer>
+    <span>MIT · built at the Cerebras × Kimi hackathon</span>
+    <span id="foot-note">answers are grounded, not generated from memory</span>
+  </footer>
+</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
 let currentRepo = "";
 
 const setStatus = (text, busy = false) => {
-  $("status").innerHTML = busy ? `<span class="spin"></span> ${text}` : text;
+  $("status").innerHTML = busy ? `<span class="spin"></span>${text}` : text;
 };
 
 async function post(path, body) {
@@ -152,7 +281,7 @@ $("prep").addEventListener("click", async () => {
   setStatus(data.cloned ? `cloned ${data.slug}` : `already cloned: ${data.slug}`);
 });
 
-$("ask").addEventListener("click", async () => {
+async function ask() {
   const question = $("q").value.trim();
   const repo = currentRepo || $("repo").value.trim();
   if (!question) return setStatus("ask something");
@@ -160,10 +289,7 @@ $("ask").addEventListener("click", async () => {
 
   $("ask").disabled = true;
   $("answer").classList.add("on");
-  $("s-time").textContent = "–";
-  $("s-turns").textContent = "–";
-  $("s-tools").textContent = "–";
-  $("s-tps").textContent = "–";
+  ["s-time", "s-turns", "s-tools", "s-tps"].forEach((id) => ($(id).textContent = "–"));
   $("s-body").innerHTML = "";
   $("s-tools-list").innerHTML = "";
   setStatus("reading…", true);
@@ -197,6 +323,11 @@ $("ask").addEventListener("click", async () => {
     $("s-body").innerHTML = render(data.final || "(empty response)");
     setStatus(`${data.model} · ${data.usage?.output ?? 0} tokens out`);
   }
+}
+
+$("ask").addEventListener("click", ask);
+$("q").addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") ask();
 });
 </script>
 </body>

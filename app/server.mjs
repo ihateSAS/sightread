@@ -6,6 +6,17 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(HERE, "public");
+const TYPES = {
+  ".html": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".webp": "image/webp",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+};
 const REPOS = join(HERE, "..", "repos");
 const PORT = (() => {
   const n = Number(process.env.PORT);
@@ -173,10 +184,23 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
 
-    if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
-      const html = await readFile(join(PUBLIC, "index.html"));
-      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-      return res.end(html);
+    // Static assets from public/. The page needs its background image and icon.
+    if (req.method === "GET" && !url.pathname.startsWith("/api/")) {
+      const rel = url.pathname === "/" ? "index.html" : decodeURIComponent(url.pathname.slice(1));
+      const safe = rel && !rel.includes("..") && !rel.startsWith("/") && !rel.includes("\\");
+      if (safe) {
+        try {
+          const body = await readFile(join(PUBLIC, rel));
+          const ext = rel.includes(".") ? "." + rel.split(".").pop().toLowerCase() : "";
+          res.writeHead(200, {
+            "content-type": TYPES[ext] || "application/octet-stream",
+            "cache-control": ext === ".html" ? "no-store" : "public, max-age=86400",
+          });
+          return res.end(body);
+        } catch {
+          // fall through to the 404 below
+        }
+      }
     }
 
     if (req.method === "GET" && url.pathname === "/api/health") {
