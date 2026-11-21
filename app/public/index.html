@@ -50,7 +50,10 @@
     padding: 26px 0 0;
   }
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
-  .brand img { width: 26px; height: 26px; border-radius: 7px; display: block; }
+  .brand img {
+    width: 42px; height: 42px; border-radius: 11px; display: block; flex-shrink: 0;
+  }
+  .brand span { font-size: 19px; }
   .brand span { font-size: 15px; font-weight: 600; letter-spacing: -0.012em; }
   .stack {
     font: 10.5px/1 var(--mono); color: var(--dim);
@@ -199,7 +202,7 @@
 
 <div class="shell">
   <nav>
-    <a class="brand" href="/"><span>Sightread</span></a>
+    <a class="brand" href="/"><img src="/icon.png" alt="" /><span>Sightread</span></a>
     <span class="stack">Kimi K3.1 Pro · Cerebras · OpenClaw</span>
   </nav>
 
