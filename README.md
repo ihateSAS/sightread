@@ -24,11 +24,18 @@ This is not a chat wrapper around a completion endpoint. Every question is a rea
 OpenClaw agent turn:
 
 ```bash
-openclaw agent exec "<question>" \
-  --cwd <path-to-repo> \
+openclaw gateway start          # once — stays warm
+openclaw agent -m "<question>" \
+  --agent sightread \
   --model cerebras/kimi-k3.1-pro \
   --thinking low --json
 ```
+
+A warm gateway is deliberate. `agent exec` starts a fresh process per question and
+costs **4.5–5.0s** before the model is called; routing through a running gateway
+brought a median turn from **3,846ms to 2,041ms**, and the scoped `sightread` agent
+(in `openclaw/sightread-agent.patch.json5`) cut the system prompt from **18,447 to
+10,157 tokens** by carrying one skill instead of twenty-five.
 
 The agent decides what to look at, calls tools (`read`, `ls`, `rg` via the
 harness), reads the results, and only then answers. `--json` returns a stable
@@ -61,16 +68,17 @@ latency you can't show on camera.
 ```bash
 export CEREBRAS_API_KEY=csk-...
 
-openclaw skills install ./openclaw/skills/repo-read --global
-openclaw skills install ./openclaw/skills/kimi-speed-lab --global
 openclaw config patch --file ./openclaw/kimi-cerebras.patch.json5
+openclaw config patch --file ./openclaw/sightread-agent.patch.json5
+mkdir -p skills && cp -R openclaw/skills/repo-read skills/repo-read
+openclaw gateway restart
 
-./check-cerebras.sh          # key, model inventory, tok/s, one agent turn
-node app/server.mjs          # http://localhost:8787
+./check-cerebras.sh                        # key, model inventory, tok/s, one turn
+SIGHTREAD_TRANSPORT=gateway node app/server.mjs   # http://localhost:8787
 ```
 
-The `--global` install matters: the agent's working directory is the *target*
-repository, so a workspace-local skill would not be discovered.
+The scoped agent reads skills from this repo's `skills/` directory, not the global
+one — that is what keeps the system prompt at ~10k tokens instead of ~18k.
 
 Environment:
 

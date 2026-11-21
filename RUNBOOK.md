@@ -25,10 +25,15 @@ If `kimi-k3.1-pro` is **not** in that list, that is expected before approval. `g
 cd ~/Desktop/home/kimi-hackathon
 git pull
 export CEREBRAS_API_KEY=csk-...
+
+openclaw gateway status            # must be reachable; if not: openclaw gateway start
 ./check-cerebras.sh                # must print "harness green"
-node app/server.mjs                # :8787 — leave running
-node race/server.mjs               # :8788 — leave running
+
+SIGHTREAD_TRANSPORT=gateway node app/server.mjs   # :8787 — leave running
+node race/server.mjs                              # :8788 — leave running
 ```
+
+The gateway must be **warm before the first question**. A cold `agent exec` costs ~4.5s per turn and fails profile-routed auth; the gateway costs ~2s.
 
 Open `http://localhost:8788` and press **Start** once. If both panes move, the video is safe.
 
@@ -48,15 +53,21 @@ Answers go straight into `.env`. Do not guess the model ID later.
 ## 10:30 — Harness green (the only window with engineers awake)
 
 ```bash
-openclaw skills install ./openclaw/skills/repo-read --global
-openclaw skills install ./openclaw/skills/kimi-speed-lab --global
 openclaw config patch --file ./openclaw/kimi-cerebras.patch.json5
+openclaw config patch --file ./openclaw/sightread-agent.patch.json5   # scoped agent
 # if the Q&A gave a different context_length, edit the patch first, then re-run
-openclaw agent exec "List the top-level files and reply in one line." \
-  --cwd . --model cerebras/kimi-k3.1-pro --thinking low --json
+
+mkdir -p skills && cp -R openclaw/skills/repo-read skills/repo-read
+openclaw gateway restart
+openclaw skills check --agent sightread      # repo-read must say "Ready and visible"
+
+openclaw agent -m "List the top-level files and reply in one line." \
+  --agent sightread --model cerebras/kimi-k3.1-pro --thinking low --json
 ```
 
-Green means: real text back, `toolSummary` populated, no 4xx. **If it isn't green by 12:30, drop to `gpt-oss-120b` and keep building.** A working demo on the public model beats a broken demo on the right one.
+Sanity-check the prompt size once: `promptTokens` should be ~10k, not ~18k. If it's 18k the scoped agent isn't being used.
+
+Green means: real text back, `toolSummary` populated, `promptTokens` ~10k, no 4xx. **If it isn't green by 12:30, drop to `gpt-oss-120b` and keep building.** A working demo on the public model beats a broken demo on the right one.
 
 ---
 
@@ -134,6 +145,9 @@ Non-negotiable. A rested 7 AM take beats a fried 6 AM one.
 |---|---|
 | `404 model not found` | model ID from Q&A, or fall to `gpt-oss-120b` |
 | `401` | key not exported in this shell |
+| turn takes ~4.5s | you're on `agent exec`, not the gateway — set `SIGHTREAD_TRANSPORT=gateway` |
+| `No route-compatible authentication source` | profile-routed creds don't work under `exec`; use the gateway |
+| `promptTokens` ~18k | scoped agent not applied — re-run the `sightread-agent` patch, restart gateway |
 | right pane says `skip` | `OPENROUTER_API_KEY` unset — race runs unopposed, still recordable |
 | `429` | slow down; you're on the public tier (form missed) |
 | agent answers with no tool calls | `repo-read` not installed globally — re-run the install |

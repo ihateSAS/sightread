@@ -40,7 +40,7 @@ Do all of this before Saturday. Scaffolding and boilerplate are explicitly allow
 
 - [ ] **Org ID + capacity form submitted** (Fri 7 PM PT). This is the whole ballgame.
 - [ ] `CEREBRAS_API_KEY` in your shell / `.env`. Verify with `./check-cerebras.sh`.
-- [ ] Install the OpenClaw Cerebras provider + patch config: `openclaw plugins install @openclaw/cerebras-provider`, then the patch in `openclaw/`.
+- [ ] Install the OpenClaw Cerebras provider + patch config: `openclaw plugins install @openclaw/cerebras-provider`, then both patches in `openclaw/` (provider, and the scoped `sightread` agent that keeps the prompt at ~10k tokens).
 - [ ] Prove the loop end-to-end **tonight** against `gpt-oss-120b` (public, no approval needed) so that Saturday is only "swap model id", not "why doesn't this work".
 - [ ] Install the `kimi-speed-lab` skill and run one TPS measurement on `gpt-oss-120b`. Baseline numbers today = a credible speed claim tomorrow.
 - [ ] Register a throwaway demo repo + have a "GPU provider" key ready for the side-by-side. Pick one you can actually show being slower.
@@ -84,22 +84,34 @@ openclaw channels add            # or: openclaw onboard
 openclaw skills install ./openclaw/skills/kimi-speed-lab --global
 ```
 
-**2. Headless sidecar (recommended for a real web UI).**
-Your app owns the interface; every user turn shells out to OpenClaw's embedded agent, which runs the Kimi tool loop and returns JSON. No gateway process to babysit, works from any Node/Python server.
+**2. Warm gateway (what we actually use — the sidecar design was measured and dropped).**
+Your app owns the interface; every turn is sent to an already-running Gateway, which runs the Kimi tool loop and returns JSON.
 
 ```bash
-openclaw agent exec "Find where the session cookie is verified in this repo" \
-  --cwd ./target-repo \
+openclaw gateway start                       # once, stays warm
+openclaw agent -m "Where does auth expire in repos/owner__name?" \
+  --agent sightread \
   --model cerebras/kimi-k3.1-pro \
   --thinking low \
-  --code-mode code \
   --json
 ```
 
-The `--json` envelope gives you `final`, `usage`, `toolSummary`, `assistantTurns`, `sessionId` — enough to render a real UI (tool timeline, token counts, elapsed time). That envelope *is* your speed story: show `assistantTurns: 3` and 1.9s.
+**Why not `agent exec`:** it starts a fresh process per question and paid **4.5–5.0s** before the model was even called. It also failed on profile-routed credentials (*"No route-compatible authentication source is configured"*) while the gateway, same machine, same model, answered fine. Do not build on it.
+
+**Measured, same machine, same model (`gpt-6.1-sol`), three runs each:**
+
+| Path | Median turn | Prompt tokens |
+|---|---|---|
+| `agent exec` (cold, per request) | ~4,500ms | 18.1k |
+| gateway, default agent | 3,846ms | 18.4k |
+| gateway, scoped `sightread` agent | **2,041ms** | **10.2k** |
+
+**The remaining cost is the system prompt, not the model.** A default agent shipped 25 skills and five workspace files (18.5k chars) before saying a word. The scoped agent in `openclaw/sightread-agent.patch.json5` carries one skill and injects no workspace files: prompt 18,447 → 10,157 tokens, turn 3,846ms → 2,041ms.
+
+**Consequence for the pitch:** budget ~2s per agent turn. Do not claim sub-second end-to-end; claim that the model reads the whole repo in one pass. Model speed is what the race page shows, separately and honestly.
 
 **3. Session-backed app.**
-Talk to a running Gateway so state persists across turns (`--session-id`, or the Gateway `agent` RPC over WebSocket). Use only if the product genuinely needs multi-turn memory across devices.
+Same gateway, plus `--session-id` so context survives across turns. Worth it only if the product genuinely needs multi-turn memory.
 
 **Minimum bar to satisfy "used the harness":** the agent loop — model picks a tool, calls it, reads the result, continues — is doing real work in your product. A single `chat.completions.create` call with OpenClaw's name in the README will not survive a question from the Cerebras team, and they will be in the Discord asking.
 

@@ -13,6 +13,7 @@ const PORT = (() => {
 })();
 const MODEL = process.env.SIGHTREAD_MODEL || "cerebras/gpt-oss-120b";
 const TRANSPORT = process.env.SIGHTREAD_TRANSPORT || "exec";
+const AGENT = process.env.SIGHTREAD_AGENT || "sightread";
 
 const agentBinary = process.env.OPENCLAW_BIN || "openclaw";
 
@@ -124,10 +125,14 @@ async function ask(repoPath, question) {
 
 // Warm path: talk to an already-running gateway instead of paying process
 // start-up on every question. Measured ~3s cheaper per turn.
-async function askViaGateway(question) {
+async function askViaGateway(repoPath, question) {
   const started = performance.now();
+  // The gateway agent has a workspace, not a working directory, so the repo is
+  // named in the prompt instead of via --cwd.
+  const prompt = `Repository: ${repoPath}\n\n${question}`;
   const r = await run(agentBinary, [
-    "agent", "-m", question,
+    "agent", "-m", prompt,
+    "--agent", AGENT,
     "--model", MODEL,
     "--thinking", "low",
     "--timeout", "300",
@@ -197,7 +202,7 @@ const server = createServer(async (req, res) => {
       const isDir = await stat(target).then((s) => s.isDirectory()).catch(() => false);
       if (!isDir) return json(res, 400, { error: `not a directory: ${target}` });
       const result = TRANSPORT === "gateway"
-        ? await askViaGateway(question)
+        ? await askViaGateway(target, question)
         : await ask(target, question);
       return json(res, result.ok ? 200 : 502, result);
     }

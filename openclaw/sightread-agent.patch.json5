@@ -1,0 +1,14 @@
+{
+  agents: {
+    entries: {
+      // A minimal agent for the Sightread demo. Scoped deliberately: this agent
+      // carries one skill and injects no workspace files, so the system prompt
+      // stays small instead of shipping every bundled skill and personality file.
+      sightread: {
+        workspace: "/Users/djh/Desktop/home/kimi-hackathon",
+        skills: ["repo-read"],
+        contextInjection: "never",
+      },
+    },
+  },
+}
