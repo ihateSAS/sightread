@@ -41,6 +41,21 @@ test("impact walks real imports: direct, transitive, and depth", async () => {
   }
 });
 
+test("a nested clone is not counted in this repo's graph", async () => {
+  const root = fixture();
+  try {
+    // A clone sitting inside the repo has its own .git and must be excluded.
+    mkdirSync(join(root, "repos", "other", ".git"), { recursive: true });
+    writeFileSync(join(root, "repos", "other", "x.js"), "require('../../lib/b.js');\n");
+
+    const graph = await buildImportGraph(root);
+    assert.equal(graph.files.length, 5, "nested repo files stay out of the graph");
+    assert.ok(!graph.files.some((f) => f.startsWith("repos/")));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("a leaf with no dependents reports an empty, low-risk impact", async () => {
   const root = fixture();
   try {

@@ -8,6 +8,7 @@
  * about coupling. Depth is the number of import hops away, which is why the
  * UI can say "3 direct, 11 at depth 2" instead of "probably a lot".
  */
+import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 
@@ -44,6 +45,9 @@ async function walkFiles(root) {
       const full = join(dir, entry.name);
       if (entry.isDirectory()) {
         if (SKIP_DIRS.has(entry.name) || entry.name.startsWith(".")) continue;
+        // A directory with its own .git is a different repository, e.g. a clone
+        // dropped into repos/. Its imports are not this repo's change surface.
+        if (existsSync(join(full, ".git"))) continue;
         if (depth + 1 > MAX_DEPTH) continue;
         queue.push({ dir: full, depth: depth + 1 });
       } else if (entry.isFile() && LANGS[extname(entry.name)]) {
