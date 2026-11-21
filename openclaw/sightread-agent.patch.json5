@@ -12,11 +12,12 @@
       sightread: {
         workspace: "/Users/djh/Desktop/home/kimi-hackathon",
         // ACP has no per-session model override: the bridge runs the agent's
-        // configured model, so this is what actually answers. gpt-oss is kept
-        // as the fallback while Kimi waits on capacity approval.
+        // configured chain, so this is what actually answers. Kimi is primary
+        // and qwen is the fallback, which means capacity landing needs no edit
+        // here: the first successful Kimi call takes over automatically.
         model: {
-          primary: "cerebras/qwen-3.8-27b",
-          fallbacks: ["cerebras/gpt-oss-120b"],
+          primary: "cerebras/kimi-k3.1-pro",
+          fallbacks: ["cerebras/qwen-3.8-27b", "cerebras/gpt-oss-120b"],
         },
         skills: [],
         contextInjection: "never",

@@ -1383,9 +1383,15 @@ function renderBlindspot(result) {
   }
   host.hidden = false;
   const c = result.coverage;
-  $("blindspot-meta").textContent = c
-    ? `${c.alone} of ${c.graph} downstream files named by the model alone · ${c.withGraph} with the graph`
-    : "";
+  const t = result.unaided;
+  const timing =
+    t?.ttftMs != null
+      ? ` · ${(t.ttftMs / 1000).toFixed(2)}s first token, ${(t.elapsedMs / 1000).toFixed(2)}s total`
+      : "";
+  $("blindspot-meta").textContent =
+    (c
+      ? `${c.alone} of ${c.graph} downstream files named by the model alone · ${c.withGraph} with the graph`
+      : "") + timing;
   $("blindspot-body").innerHTML = result.error
     ? `<div class="err">${esc(result.error)}</div>`
     : `<div class="note">Same model, same question, no parsed imports in its prompt.</div>` +
@@ -1394,23 +1400,21 @@ function renderBlindspot(result) {
 
 async function loadBlindspot(primary, question, repo, seq, pending) {
   $("blindspot").hidden = false;
-  $("blindspot-meta").textContent = "asking the same model with no graph…";
-  $("blindspot-body").innerHTML = "";
-  // When the graph arrived early, the unaided turn is already running.
+  // When the graph arrived early the stream is already painting this pane, so
+  // clearing it here would erase text the reader is watching.
+  if (!pending) {
+    $("blindspot-meta").textContent = "asking the same model with no graph…";
+    $("blindspot-body").innerHTML = "";
+  }
   const { data } = pending
     ? await pending
-    : await post("/api/ask", {
-        repo,
-        question,
-        thinking: thinkingEffort,
-        impact: false,
-        sessionId: null,
-      });
+    : await streamAsk({ repo, question, thinking: thinkingEffort, impact: false, sessionId: null }, () => {});
   if (seq !== blindspotSeq) return;
+  const turn = data || { ok: false, error: "the unassisted turn returned nothing" };
   const result = {
-    coverage: data.error ? null : coverageOf(primary.impact, primary.final || "", data.final || ""),
-    unaided: data,
-    error: data.error || null,
+    coverage: turn.error ? null : coverageOf(primary.impact, primary.final || "", turn.final || ""),
+    unaided: turn,
+    error: turn.error || null,
   };
   primary.blindspot = result;
   renderBlindspot(result);
@@ -1557,9 +1561,30 @@ async function ask() {
   // Start the no-graph turn the moment the parsed impact is known, so the two
   // answers run at the same time instead of one after the other.
   let unaided = null;
+  let blindspotText = "";
+  let blindspotPainting = false;
+  const paintBlindspot = (text) => {
+    if (!blindspotPainting) {
+      $("blindspot").hidden = false;
+      $("blindspot-body").innerHTML = "";
+      const pre = document.createElement("div");
+      pre.id = "blindspot-stream";
+      pre.style.whiteSpace = "pre-wrap";
+      $("blindspot-body").appendChild(pre);
+      blindspotPainting = true;
+    }
+    blindspotText += text;
+    const el = document.getElementById("blindspot-stream");
+    if (el) el.textContent = blindspotText;
+  };
   const startUnaided = (meta) => {
     if (!useEvidence || unaided || !meta.impactUsed || !hasDownstream(meta.impact)) return;
-    unaided = post("/api/ask", { repo, question, thinking: thinkingEffort, impact: false, sessionId: null });
+    $("blindspot").hidden = false;
+    $("blindspot-meta").textContent = "asking the same model with no graph…";
+    unaided = streamAsk(
+      { repo, question, thinking: thinkingEffort, impact: false, sessionId: null },
+      paintBlindspot
+    );
   };
 
   const turned = await streamAsk(payload, paintStream, startUnaided);

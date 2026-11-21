@@ -176,6 +176,81 @@ async function probeCerebrasModel(cfg) {
   return { present: new RegExp(`(^|[^A-Za-z0-9_-])${escaped}([^A-Za-z0-9_-]|$)`).test(text) };
 }
 
+// ACP never reports which model won a turn, and the sightread agent has a
+// fallback chain, so the label has to come from somewhere honest. The provider's
+// own model list is that signal: cache it briefly and name the model the turn
+// can actually run. The moment Kimi appears there, the page says Kimi.
+let modelListCache = { at: 0, ids: null };
+
+async function cerebrasModelIds() {
+  if (Date.now() - modelListCache.at < 60_000) return modelListCache.ids;
+  try {
+    const res = await fetch("https://api.cerebras.ai/v1/models", {
+      headers: { authorization: `Bearer ${process.env.CEREBRAS_API_KEY}` },
+      signal: AbortSignal.timeout(3000),
+    });
+    const data = await res.json();
+    modelListCache = {
+      at: Date.now(),
+      ids: Array.isArray(data?.data) ? data.data.map((m) => m.id) : null,
+    };
+  } catch {
+    // Unknown is not the same as missing: keep claiming the configured model
+    // rather than inventing a fallback the turn may not have used.
+    modelListCache = { at: Date.now(), ids: null };
+  }
+  return modelListCache.ids;
+}
+
+async function effectiveModel(cfg) {
+  if (!/^cerebras\//i.test(cfg.model)) return cfg.model;
+  const ids = await cerebrasModelIds();
+  if (!Array.isArray(ids)) return cfg.model;
+  const leaf = String(cfg.model).split("/").pop();
+  if (ids.includes(leaf)) return cfg.model;
+  return process.env.SIGHTREAD_FALLBACK_MODEL || "cerebras/qwen-3.8-27b";
+}
+
+// The agent config names Kimi as primary so capacity landing needs no edit. But
+// every turn that tries a model the provider does not serve yet pays seconds of
+// retry before the fallback answers, so at boot the live chain is reconciled to
+// what the provider actually lists. Replacing the key and restarting is enough:
+// the first boot that sees Kimi promotes it back.
+async function syncAgentModel(cfg) {
+  if (!/^cerebras\//i.test(cfg.model)) return { changed: false, reason: "not cerebras" };
+  const ids = await cerebrasModelIds();
+  if (!Array.isArray(ids)) return { changed: false, reason: "provider list unavailable" };
+
+  const fallback = process.env.SIGHTREAD_FALLBACK_MODEL || "cerebras/qwen-3.8-27b";
+  const live = ids.includes(String(cfg.model).split("/").pop());
+  const desired = live
+    ? { primary: cfg.model, fallbacks: [fallback, "cerebras/gpt-oss-120b"] }
+    : { primary: fallback, fallbacks: ["cerebras/gpt-oss-120b"] };
+
+  const current = await runCommand(cfg.agentBinary, [
+    "config", "get", `agents.entries.${cfg.agent}.model`,
+  ]);
+  let currentPrimary = null;
+  try {
+    currentPrimary = JSON.parse(String(current.stdout || "{}")).primary ?? null;
+  } catch {
+    currentPrimary = null;
+  }
+  // Compare the primary exactly: the fallback names are present in both forms,
+  // so matching on them would call a Kimi-primary chain settled.
+  if (currentPrimary === desired.primary) return { changed: false, primary: desired.primary };
+
+  const write = await runCommand(cfg.agentBinary, [
+    "config", "set", `agents.entries.${cfg.agent}.model`, JSON.stringify(desired),
+  ]);
+  return {
+    changed: write.code === 0,
+    primary: desired.primary,
+    kimiLive: live,
+    error: write.code === 0 ? null : (write.stderr || "").slice(0, 200),
+  };
+}
+
 function json(res, code, body) {
   const payload = JSON.stringify(body);
   res.writeHead(code, {
@@ -420,10 +495,15 @@ export function createAppServer({
     if (!question || !String(question).trim()) {
       return { error: 400, body: { error: "question is required" } };
     }
+    // Which model will actually answer is resolved first: the configured one may
+    // be missing from the provider, in which case the fallback answers and the
+    // turn has to be shaped for that model, not the configured one.
+    const model = await effectiveModel(cfg);
+
     // Qwen on Cerebras can spend a short answer's whole budget on hidden
     // reasoning and return no text at all, so this model only answers reliably
     // with thinking off. Other models keep the level the page selects.
-    const thinking = /qwen/i.test(cfg.model)
+    const thinking = /qwen/i.test(model)
       ? "off"
       : ALLOWED_THINKING.has(rawThinking)
         ? rawThinking
@@ -475,6 +555,7 @@ export function createAppServer({
     return {
       question: String(question).trim(),
       target,
+      model,
       thinking,
       useImpact,
       evidence,
@@ -591,14 +672,17 @@ export function createAppServer({
         if (prep.error) return json(res, prep.error, prep.body);
         const { question, target, thinking, useImpact, evidence, impactMs } = prep;
         const sessionId = body.sessionId;
+        // Run the model that can answer, not the configured one: passing Kimi to
+        // the CLI only buys a 404 and a retry before the same fallback answers.
+        const turnCfg = { ...cfg, model: prep.model };
 
         const useGateway =
           cfg.transport === "gateway" ||
           (cfg.transport === "auto" && (await isGatewayReachable(cfg.gatewayPort)));
 
         const result = useGateway
-          ? await askViaGateway(cfg, target, String(question).trim(), thinking, sessionId, evidence)
-          : await askViaExec(cfg, target, String(question).trim(), thinking, evidence);
+          ? await askViaGateway(turnCfg, target, question, thinking, sessionId, evidence)
+          : await askViaExec(turnCfg, target, question, thinking, evidence);
 
         result.impact = evidence;
         result.impactMs = impactMs;
@@ -641,12 +725,15 @@ export function createAppServer({
           ? `Repository: ${prep.target}\n\n${prep.question}\n\n<computed_impact>\n${impactPrompt(prep.evidence)}\n</computed_impact>`
           : `Repository: ${prep.target}\n\n${unaidedPrompt(prep.question)}`;
 
+        const model = prep.model;
         send("meta", {
           impact: prep.evidence,
           impactMs: prep.impactMs,
           impactUsed: Boolean(prep.evidence),
           impactDisabled: !prep.useImpact,
+          model,
           configuredModel: cfg.model,
+          modelMismatch: model !== cfg.model,
           thinking: prep.thinking,
         });
 
@@ -674,8 +761,9 @@ export function createAppServer({
             toolSummary: out.toolCalls ? { calls: out.toolCalls } : null,
             sessionId: out.sessionId,
             stopReason: out.stopReason,
-            model: cfg.model,
+            model,
             configuredModel: cfg.model,
+            modelMismatch: model !== cfg.model,
             transport: "acp",
             impact: prep.evidence,
             impactMs: prep.impactMs,
@@ -732,6 +820,7 @@ export function createAppServer({
 
   // The bridge is spawned on demand; expose it so the entry point can warm it.
   server.acp = acp;
+  server.syncModel = () => syncAgentModel(getConfig());
   server.on("close", () => acp.close());
   return server;
 }
@@ -740,6 +829,9 @@ const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(imp
 if (isMain) {
   const cfg = getConfig();
   const server = createAppServer();
+  // Reconcile the agent model in the background: a wrong chain costs latency on
+  // every question, but the server must not wait on the CLI to start.
+  server.syncModel().then((s) => console.log("agent model:", JSON.stringify(s))).catch(() => {});
   server.listen(cfg.port, () => {
     console.log(`Sightread on http://localhost:${cfg.port}`);
     console.log(`model: ${cfg.model} (transport: ${cfg.transport})`);
