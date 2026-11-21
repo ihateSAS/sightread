@@ -37,7 +37,11 @@ const graphCache = new Map();
 // A question only earns a graph lookup when it is about change. Asking how
 // something works stays a plain read; asking what a change breaks gets evidence.
 const CHANGE_INTENT =
-  /\b(break|breaks|breaking|broke|impact|dependents?|depends on|who (?:uses|calls|imports)|affect|affects|safe to (?:change|edit|delete|remove)|refactor|downstream|callers?|ripple|load[- ]bearing|most imported)\b/i;
+  /\b(break|breaks|breaking|broke|impact|dependents?|depends on|who (?:uses|calls|imports)|affect|affects|safe to (?:change|edit|delete|remove)|refactor|downstream|callers?|ripple)\b/i;
+// Hubs are only ever offered to a question that asks for them by name. A stray
+// change verb is not a request for a list of the repository's busiest files.
+const HOTSPOT_INTENT =
+  /\b(which (?:files|file|modules?|parts)|load[- ]bearing|hotspots?|most (?:imported|depended on)|where (?:should|do) i start|what should i (?:read|look at))\b/i;
 const FILE_MENTION =
   /(?:^|[\s`"'(])([\w.@/-]+\.(?:mjs|cjs|js|jsx|ts|tsx|py|go|rs|rb|java|kt|cs|php|swift|exs?|h|c|cc|cpp))(?=$|[\s`"'),:;?])/;
 
@@ -57,16 +61,28 @@ const cleanPath = (p) =>
  * Returns null when the question is not about change, so normal reads stay cheap.
  */
 export async function impactEvidence(repoPath, question, explicitPath) {
-  if (!CHANGE_INTENT.test(question) && !explicitPath) return null;
+  // An explicit pick from the impact panel is already a file, so it counts as intent.
+  const wantsImpact = Boolean(explicitPath) || CHANGE_INTENT.test(question);
+  const wantsHubs = !explicitPath && HOTSPOT_INTENT.test(question);
+  if (!wantsImpact && !wantsHubs) return null;
 
-  const graph = await graphFor(repoPath);
   const mentioned = (question.match(FILE_MENTION) || [])[1];
   const candidate = cleanPath(explicitPath || mentioned || "");
-  const hubs = () => ({ mode: "hubs", hot: hottestFiles(graph, 8) });
 
-  if (!candidate) return hubs();
-  const abs = resolve(repoPath, candidate);
-  if (!graph.files.includes(abs)) return hubs();
+  // No resolved file, no impact list. A change verb alone is not evidence.
+  if (!candidate) {
+    if (!wantsHubs) return null;
+    const graph = await graphFor(repoPath);
+    return { mode: "hubs", hot: hottestFiles(graph, 8) };
+  }
+
+  if (!wantsImpact) return null;
+
+  const graph = await graphFor(repoPath);
+  if (!graph.files.includes(resolve(repoPath, candidate))) {
+    // A path that does not exist is not a reason to inject a different answer.
+    return wantsHubs ? { mode: "hubs", hot: hottestFiles(graph, 8) } : null;
+  }
   return { mode: "impact", ...impactOf(graph, candidate) };
 }
 

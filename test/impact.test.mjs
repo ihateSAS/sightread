@@ -66,17 +66,27 @@ test("a change question resolves to the file it names", async () => {
   }
 });
 
-test("only change questions get a graph lookup", async () => {
+test("only a resolved file gets an impact list injected", async () => {
   const root = fixture();
   try {
     assert.equal(await impactEvidence(root, "how does the parser work?", null), null);
 
+    // a change verb with no file is not evidence: it must not smuggle in hubs
+    assert.equal(await impactEvidence(root, "refactor the auth flow", null), null);
+    assert.equal(await impactEvidence(root, "is it safe to change this?", null), null);
+
+    // a path without change intent is a read, not an impact question
+    assert.equal(await impactEvidence(root, "explain lib/b.js", null), null);
+
+    // a path that does not resolve gets nothing, rather than a substitute answer
+    assert.equal(await impactEvidence(root, "what breaks if I delete nope.js", null), null);
+
     const hubs = await impactEvidence(root, "which files are load-bearing?", null);
-    assert.equal(hubs.mode, "hubs", "a change question with no file gets the hub ranking");
+    assert.equal(hubs.mode, "hubs", "hubs are reserved for questions that ask for them");
     assert.ok(hubs.hot.length > 0);
 
-    const missing = await impactEvidence(root, "what breaks if I delete nope.js", null);
-    assert.equal(missing.mode, "hubs", "an unknown path is not reported as zero impact");
+    const explicit = await impactEvidence(root, "explain this", "lib/b.js");
+    assert.equal(explicit.mode, "impact", "a file picked in the panel is intent enough");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -35,11 +35,12 @@ The model's job is to explain the list, not to produce it.
 That is the claim worth checking in a demo: every arrow on screen is a line you
 can open.
 
-The ask flow uses the same evidence. A question that mentions a change (`break`,
-`depend`, `refactor`, `affect`) triggers a graph lookup, the parsed dependent
-list is injected into the agent prompt inside a `<computed_impact>` block, and the
-identical list renders beside the answer. A question about behaviour does no
-graph work at all, so ordinary reads stay as fast as they were.
+The ask flow uses the same evidence, under a strict rule: a change verb alone buys
+nothing. The impact list is injected into the agent prompt inside a
+`<computed_impact>` block only when the question also names a file that resolves
+in this repository, or when you picked one in the panel. The hub ranking is
+reserved for questions that ask which files matter. Everything else does no graph
+work at all, so ordinary reads keep their latency.
 
 ## How OpenClaw is load-bearing
 
