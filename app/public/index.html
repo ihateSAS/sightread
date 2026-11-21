@@ -421,6 +421,14 @@
   .answer-layout { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
   .answer-layout.with-proof { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); }
 
+  /* ---- blind spot: the same model answering with no graph ---- */
+  .blindspot { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .blindspot[hidden] { display: none; }
+  .blindspot-head { display: flex; gap: 10px 18px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+  .blindspot-head h4 { margin: 0; font: 600 13px/1.4 var(--sans); letter-spacing: 0.01em; color: var(--text); }
+  .blindspot-meta { font: 500 11.5px/1.6 var(--mono); color: var(--dim); }
+  .blindspot-body { margin-top: 12px; }
+
   .body { font-size: 15.5px; line-height: 1.68; color: #dfe5ee; min-width: 0; }
   .body p { margin: 0 0 12px; }
   .body p:last-child { margin-bottom: 0; }
@@ -705,7 +713,8 @@
       <h1>Ask a codebase<br /><em>anything.</em></h1>
       <p class="sub">
         Ask a repository a question and every answer points at the exact file and line it used.
-        Ask what a change would break and you get a list computed from the imports, not predicted by the model.
+        Ask what a change would break and it answers twice, once with the parsed imports and once without
+        them, then counts what the model missed.
       </p>
       <p class="method">
         Sightread clones the repo and parses the import graph locally. A scoped OpenClaw agent then
@@ -792,6 +801,13 @@
           </aside>
         </div>
         <div class="tools" id="s-tools-list"></div>
+        <div class="blindspot" id="blindspot" hidden>
+          <div class="blindspot-head">
+            <h4>Without the graph</h4>
+            <span class="blindspot-meta" id="blindspot-meta"></span>
+          </div>
+          <div class="body blindspot-body" id="blindspot-body"></div>
+        </div>
       </div>
     </section>
   </section>
@@ -878,6 +894,7 @@ let useSessionFollowup = false;
 let historyItems = [];
 let useEvidence = true;
 let activeProofBtn = null;
+let blindspotSeq = 0;
 
 // ---- view switching ----
 function setView(name, push = true) {
@@ -1298,6 +1315,81 @@ $("prep").addEventListener("click", async () => {
   loadRepos();
 });
 
+function refsInAnswer(text) {
+  const refs = new Set();
+  const re = /([\w./-]+\.(?:js|mjs|cjs|ts|tsx|jsx|py|go|rs|rb|java|kt|cc|cpp|h|c|php|swift|ex|exs))(?::\d+)?/g;
+  for (const m of String(text || "").matchAll(re)) refs.add(m[1].replace(/^\.\//, ""));
+  return refs;
+}
+
+// The product claim: of the files the graph lists, how many does the same model
+// name when it has the graph, and how many when it has nothing but the repo?
+function coverageOf(impact, aidedText, unaidedText) {
+  // impact.transitive includes the direct importers at depth 1, which would
+  // double-count them against direct. Count each downstream file once.
+  const indirect = (impact?.transitive || []).filter((t) => t.depth > 1);
+  const paths = [...(impact?.direct || []), ...indirect].map((x) => x.path);
+  const graph = new Set(paths);
+  const byBase = new Map();
+  for (const p of paths) {
+    const base = p.split("/").pop();
+    if (!byBase.has(base)) byBase.set(base, p);
+  }
+  const hits = (refs) => {
+    const named = new Set();
+    for (const ref of refs) {
+      const file = graph.has(ref) ? ref : byBase.get(ref.split("/").pop());
+      if (file) named.add(file);
+    }
+    return named.size;
+  };
+  return {
+    graph: graph.size,
+    withGraph: hits(refsInAnswer(aidedText)),
+    alone: hits(refsInAnswer(unaidedText)),
+  };
+}
+
+function renderBlindspot(result) {
+  const host = $("blindspot");
+  if (!result) {
+    host.hidden = true;
+    $("blindspot-body").innerHTML = "";
+    $("blindspot-meta").textContent = "";
+    return;
+  }
+  host.hidden = false;
+  const c = result.coverage;
+  $("blindspot-meta").textContent = c
+    ? `${c.alone} of ${c.graph} downstream files named by the model alone · ${c.withGraph} with the graph`
+    : "";
+  $("blindspot-body").innerHTML = result.error
+    ? `<div class="err">${esc(result.error)}</div>`
+    : `<div class="note">Same model, same question, no parsed imports in its prompt.</div>` +
+      renderMarkdown(result.unaided?.final || "(empty response)");
+}
+
+async function loadBlindspot(primary, question, repo, seq) {
+  $("blindspot").hidden = false;
+  $("blindspot-meta").textContent = "asking the same model with no graph…";
+  $("blindspot-body").innerHTML = "";
+  const { data } = await post("/api/ask", {
+    repo,
+    question,
+    thinking: thinkingEffort,
+    impact: false,
+    sessionId: null,
+  });
+  if (seq !== blindspotSeq) return;
+  const result = {
+    coverage: data.error ? null : coverageOf(primary.impact, primary.final || "", data.final || ""),
+    unaided: data,
+    error: data.error || null,
+  };
+  primary.blindspot = result;
+  renderBlindspot(result);
+}
+
 function paintResult(data) {
   $("answer").classList.add("on");
   $("proof").style.display = "none";
@@ -1353,6 +1445,7 @@ function paintResult(data) {
     $("s-body").innerHTML = note + warn + renderMarkdown(data.final || "(empty response)");
     setStatus(`${data.model} · ${data.usage?.output ?? 0} tokens out`);
   }
+  renderBlindspot(data.blindspot || null);
 }
 
 function renderHistory() {
@@ -1389,6 +1482,9 @@ async function ask() {
   ["s-time", "s-turns", "s-tools", "s-tps", "s-tokens"].forEach((id) => ($(id).textContent = "–"));
   $("s-body").innerHTML = "";
   $("s-tools-list").innerHTML = "";
+  blindspotSeq += 1;
+  const seq = blindspotSeq;
+  renderBlindspot(null);
   setStatus("reading repository…", true);
 
   const t0 = performance.now();
@@ -1420,6 +1516,9 @@ async function ask() {
   // when the question was about a change, show the computed edges next to it.
   if (data.impact?.mode === "impact") renderImpactBody(data.impact);
   else if (data.impact?.mode === "hubs") renderHot(data.impact.hot);
+  if (useEvidence && !data.error && data.impactUsed && data.impact?.mode === "impact") {
+    loadBlindspot(data, question, repo, seq);
+  }
   if (!data.error) {
     historyItems.unshift({ question, data });
     historyItems = historyItems.slice(0, 5);

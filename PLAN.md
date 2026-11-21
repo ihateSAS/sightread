@@ -68,6 +68,7 @@ All three satisfy "OpenClaw harness + Kimi central". Ranked by demo-per-hour-of-
 Drop a GitHub URL, ask anything about the codebase, get an answer with `file:line` citations in ~2 seconds. No embedding index: the agent opens scoped files with tools, guided by a locally parsed import graph. The 1M window is headroom, not a repo-sized prompt.
 
 - **Why it wins:** the event's own copy is "refactoring legacy code, exploring new codebases." You are demoing the thing they asked for.
+- **The claim prior art leaves us:** every change question is answered twice, with the parsed graph and without it, and the UI counts how much of the graph the unaided run named. Blast-radius tools already exist; the baseline is the differentiator.
 - **OpenClaw shape:** a skill with tools (clone, `rg`, read) that the agent loops over. Genuinely uses the harness rather than wrapping a chat completion.
 - **60s clip:** paste a 200k-line repo → type "where does auth expire?" → answer lands with citations while the GPU column is still showing "thinking…".
 - **Risk:** repo clone/parse eats your first 4 hours. Cap it: support one language, one repo, pre-cloned.

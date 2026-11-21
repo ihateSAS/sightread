@@ -47,11 +47,11 @@ an imported module, and it has nothing to say about dynamic imports. That is a
 real limit, not a design virtue.
 
 Repo Q&A with citations is table stakes too. The difference this project can
-defend is narrower: the computed evidence and the model's own answer sit on the
-same screen, with a switch between them. Turning the graph off reruns the same
-question with the same model and no `<computed_impact>` block, so the gap between
-what the model works out alone and what the graph knows is visible instead of
-buried in a footnote.
+defend is narrower: every change question is answered twice, once with the
+computed evidence in the prompt and once without it, and both answers stay on
+screen. The unaided run is the baseline. The UI counts how many of the graph's
+files it named, so the gap between what the model works out alone and what the
+graph knows is a number instead of a footnote.
 
 The graph itself is in `app/lib/impact.mjs`: it parses import statements, resolves
 relative specifiers against files that exist, and walks dependents outward. The
@@ -75,6 +75,11 @@ nothing. The impact list is injected into the agent prompt inside a
 in this repository, or when you picked one in the panel. The hub ranking is
 reserved for questions that ask which files matter. Everything else does no graph
 work at all, so ordinary reads keep their latency.
+
+When the rule applies and evidence exists, the server is asked twice: the normal
+turn, then a second turn with `impact:false` and no computed block. The second
+answer is rendered under the first and compared against the graph. That is the
+feature, and it is why a change question costs two agent turns rather than one.
 
 ## How OpenClaw is load-bearing
 
