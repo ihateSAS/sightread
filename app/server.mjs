@@ -185,7 +185,10 @@ let modelListCache = { at: 0, ids: null };
 async function cerebrasModelIds() {
   if (Date.now() - modelListCache.at < 60_000) return modelListCache.ids;
   try {
-    const res = await fetch("https://api.cerebras.ai/v1/models", {
+    // Honour the same base URL as the turn itself, so a stub provider or a
+    // gateway deployment resolves models against the host that will serve them.
+    const base = (process.env.CEREBRAS_BASE_URL || "https://api.cerebras.ai/v1").replace(/\/$/, "");
+    const res = await fetch(`${base}/models`, {
       headers: { authorization: `Bearer ${process.env.CEREBRAS_API_KEY}` },
       signal: AbortSignal.timeout(3000),
     });
@@ -363,6 +366,14 @@ function extractTraceTools(trace) {
 // guesses to be marked as guesses.
 function unaidedPrompt(question) {
   return `You have no repository access and no tools this turn. Answer from what you know about this project and its conventions: name the specific files you believe would be affected, and mark anything you are guessing at.\n\n${question}`;
+}
+
+// One prompt shape for both routes, so a streamed answer and the envelope
+// fallback cannot disagree about what the model was shown.
+function buildPrompt({ evidence, target, question }) {
+  return evidence
+    ? `Repository: ${target}\n\n${question}\n\n<computed_impact>\n${impactPrompt(evidence)}\n</computed_impact>`
+    : `Repository: ${target}\n\n${unaidedPrompt(question)}`;
 }
 
 async function askViaExec(cfg, repoPath, question, thinking, evidence) {
@@ -666,6 +677,56 @@ export function createAppServer({
         if (prep.error) return json(res, prep.error, prep.body);
         const { question, target, thinking, useImpact, evidence, impactMs } = prep;
         const sessionId = body.sessionId;
+
+        // With a key present the envelope comes straight from the provider. The
+        // CLI path stays for setups that run the agent without one, but it pays
+        // the gateway's per-turn session cost and cannot report first token.
+        if (process.env.CEREBRAS_API_KEY) {
+          const directStarted = performance.now();
+          try {
+            const out = await streamProvider({
+              model: prep.model,
+              thinking,
+              prompt: buildPrompt(prep),
+              timeoutMs: ASK_DEADLINE_MS,
+            });
+            return json(res, 200, {
+              ok: true,
+              final: out.text,
+              model: out.model,
+              configuredModel: cfg.model,
+              modelMismatch: modelMismatch(cfg.model, out.model),
+              usage: out.phases.usage,
+              ttftMs: out.phases.promptToFirstChunkMs,
+              elapsedMs: Math.round(performance.now() - directStarted),
+              transport: "cerebras",
+              stopReason: out.stopReason,
+              // The direct path is stateless, so a follow-up id has nothing to
+              // resume; the streamed route is the one the page uses for those.
+              sessionId: null,
+              assistantTurns: null,
+              toolSummary: null,
+              phases: out.phases,
+              impact: evidence,
+              impactMs,
+              impactUsed: Boolean(evidence),
+              impactDisabled: !useImpact,
+            });
+          } catch (e) {
+            const limited = /HTTP 429/.test(e.message);
+            return json(res, limited ? 429 : 502, {
+              ok: false,
+              error: limited
+                ? "Cerebras rate limited this turn on tokens per minute, so no answer was produced."
+                : `The provider failed: ${e.message}`,
+              hint: limited
+                ? "The public tier allows 30,000 tokens/minute, and Cerebras counts the requested output against it too. Wait about a minute and ask again."
+                : "Check CEREBRAS_API_KEY and the model name, or run ./check-cerebras.sh.",
+              configuredModel: cfg.model,
+            });
+          }
+        }
+
         // Run the model that can answer, not the configured one: passing Kimi to
         // the CLI only buys a 404 and a retry before the same fallback answers.
         const turnCfg = { ...cfg, model: prep.model };
@@ -716,9 +777,7 @@ export function createAppServer({
         const started = performance.now();
         let ttftMs = null;
         let text = "";
-        const prompt = prep.evidence
-          ? `Repository: ${prep.target}\n\n${prep.question}\n\n<computed_impact>\n${impactPrompt(prep.evidence)}\n</computed_impact>`
-          : `Repository: ${prep.target}\n\n${unaidedPrompt(prep.question)}`;
+        const prompt = buildPrompt(prep);
 
         const model = prep.model;
         // Everything before the first byte the browser can act on: validation,
@@ -763,6 +822,8 @@ export function createAppServer({
             ttftMs,
             prepareMs,
             phases,
+            // The page's token and tokens/second stats read this directly.
+            usage: out.phases.usage,
             elapsedMs: Math.round(performance.now() - started),
             agentMs: out.elapsedMs,
             assistantTurns: null,
