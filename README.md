@@ -14,10 +14,10 @@ repository's own imports, then hands a scoped OpenClaw agent the files a questio
 actually needs, one tool call at a time.
 
 The 1M-token window is headroom, not a paste buffer. Nothing ships the whole
-repository to the model: a turn carries a ~10k-token system prompt and the handful
-of files the agent chose to open. On Express the local graph covers 142 files and
-160 internal imports, so the agent starts from a real dependency list rather than
-a guess.
+repository to the model: a turn carries a scoped system prompt and either the
+parsed evidence for the file you asked about, or the handful of files the agent
+chose to open. On Express the local graph covers 142 files and 160 internal
+imports, so the agent starts from a real dependency list rather than a guess.
 
 That is the product thesis: the graph is computed, the reading is scoped, and the
 model narrates only what it can cite.
@@ -100,12 +100,12 @@ brought a median turn from **3,846ms to 2,041ms**, and the scoped `sightread` ag
 (in `openclaw/sightread-agent.patch.json5`) cut the system prompt from **18,447 to
 10,157 tokens** by carrying one skill instead of twenty-five.
 
-The agent decides what to look at, calls tools (`read`, `ls`, `rg` via the
-harness), reads the results, and only then answers. `--json` returns a stable
-envelope — `final`, `usage`, `toolSummary`, `assistantTurns`, `sessionId` — which
-the UI renders directly. The "agent turns" and "tool calls" counters on screen are
-those numbers, not decoration: if the agent had answered from memory without
-reading, they would read zero and the demo would be a lie.
+Both answers are real agent turns from the same scoped agent, which carries no
+skills and no open-ended tool loop. `--json` returns a stable envelope — `final`,
+`usage`, `toolSummary`, `assistantTurns`, `sessionId` — which the UI renders
+directly. The counters on screen are those numbers, not decoration: an answer
+lands in one or two model calls, because the graph has already done the reading.
+The unaided run is the identical turn minus the graph.
 
 Two skills ship with the project:
 
@@ -150,6 +150,7 @@ Environment:
 |---|---|---|
 | `CEREBRAS_API_KEY` | — | required for any agent turn |
 | `SIGHTREAD_MODEL` | `cerebras/gpt-oss-120b` | set to `cerebras/kimi-k3.1-pro` once preview access lands |
+| `SIGHTREAD_DEADLINE_MS` | `45000` | hard stop for one turn, so a rate-limited retry cannot hold the request open |
 | `PORT` | `8787` | |
 
 ## Layout
@@ -169,14 +170,70 @@ SUBMISSION.md                   the Discord/Reddit/X submission copy
 
 ## Status
 
-Working: repo clone, page, provider config written but not applied, skill, TPS
-harness. The server answers `/api/health` and serves the page.
+Working end to end on `cerebras/qwen-3.8-27b`: repo clone, parsed impact graph,
+paired answers, clickable citations, race panel, TPS lab. `kimi-k3.1-pro` still
+returns `model_not_found` until the capacity request is processed; the config
+lists it as the primary model and the agent uses the fallback while it waits.
 
-**Not yet proven:** no agent turn has completed end-to-end against Cerebras,
-because the API key is not in the environment. That is the next commit.
+Measured on `repos/expressjs__express`, Nov 18, one paired run:
 
-No performance numbers are claimed in this README. When there are some, they will
-come from `kimi-speed-lab` with the run details attached, not from a vibe.
+| Run | First token | Wall | Downstream named |
+|---|---|---|---|
+| With graph | 2.92s | 3.12s | 21 of 100 |
+| Graph off | 1.46s | 1.98s | 3 of 100 |
+
+The graph resolves `lib/application.js` to 100 downstream files: one direct
+importer at `lib/express.js:18` and 99 indirect across three levels. The aided
+turn answered from that list and named 21 of them. The unaided turn was the same
+agent with no graph, asked to make its best guess from what it knows, and named
+3. Coverage comes from `app/public/coverage.mjs`, the module the page imports,
+so the number on screen is the number the tests check. The baseline is a real
+attempt on purpose: handing it only a path invited "I have no file access",
+which would inflate the gap without testing the graph.
+
+Wall time is a range, not a constant: the first ask after a gateway restart took
+7.2s, and later pairs landed at 3.2s and 1.9s. A third question inside the same
+minute still reaches the ceiling, and then the turn spends its 45s deadline
+waiting rather than answering, so a demo asks one pair and pauses before the
+next ask.
+
+Three different numbers live in this project, and they measure different things:
+
+| Path | What it measures | Measured |
+|---|---|---|
+| Speed Race panel (raw streaming) | first token, then a 600-token answer, same model both sides | 278ms first token, 561ms total, 1,069 tok/s wall (2,045 tok/s server) |
+| Speed Race panel, OpenRouter lane | the same 600 tokens, same model | 857ms first token, 5.14s total, 117 tok/s wall |
+| Ask panel, aided turn | graph parsed locally, then a fresh bridge and the first streamed chunk | 2.07s first token, 2.31s total |
+| Ask panel, unaided turn | same model, same question, no graph | 3.11s first token, 4.56s total |
+
+The Ask panel streams through the ACP bridge (`openclaw acp`), so its
+first-token number is the first delta the browser received, not an estimate.
+The bridge is spawned per question, because ACP sessions on one bridge share a
+gateway session: a word told to the first session was recalled by the second,
+which would let the no-graph answer read the aided turn and destroy the
+comparison. Isolation costs about 1.2s of each turn and is worth it. The bridge
+honours the page's thought level through `session/set_mode`. ACP has no
+per-session model override, so the `sightread` agent is pinned to
+`cerebras/qwen-3.8-27b` in its own config; the model named on screen is that
+config, not just the environment variable. `/api/ask` still returns the whole
+envelope for callers that do not stream.
+
+The free tier still adds variance, and a retry costs a 60s wait, so the page
+reports the number it measured rather than a best case. A paired run starts the
+no-graph turn as soon as the parsed impact arrives, so both answers run at once.
+
+A sub-second clip is almost always a streamed completion with a short answer.
+Sightread can produce that number on the race panel, and it is the honest one to
+put next to tok/s. The ask panel measures a full agent turn, and reports both
+its first token and its total on screen.
+
+The public Cerebras tier allows 30,000 tokens/minute and counts the requested
+output against it. The provider config therefore asks for 4,096 output tokens,
+memory-core is off, and `/api/ask` stops a turn at `SIGHTREAD_DEADLINE_MS`
+rather than waiting out the harness retry ladder. A rate limit arrives as HTTP
+429 with a retry hint, not as a hang or a vague 502.
+
+Not yet proven: `kimi-k3.1-pro` end to end, and the 60s video does not exist yet.
 
 ## License
 

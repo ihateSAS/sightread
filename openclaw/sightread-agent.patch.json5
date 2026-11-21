@@ -1,13 +1,28 @@
 {
   agents: {
     entries: {
-      // A minimal agent for the Sightread demo. Scoped deliberately: this agent
-      // carries one skill and injects no workspace files, so the system prompt
-      // stays small instead of shipping every bundled skill and personality file.
+      // A minimal agent for the Sightread demo: no skills, tools denied. The
+      // graph already carries the evidence, so an answer takes one or two model
+      // calls instead of the four or five an exploring agent spent. That matters
+      // because the free Cerebras tier allows five requests a minute, and a pair
+      // of exploring answers could not fit inside one minute.
+      //
+      // The repo-read skill is out for the same reason: it tells the model to
+      // read before answering, which it does not need to do here.
       sightread: {
         workspace: "/Users/djh/Desktop/home/kimi-hackathon",
-        skills: ["repo-read"],
+        // ACP has no per-session model override: the bridge runs the agent's
+        // configured model, so this is what actually answers. gpt-oss is kept
+        // as the fallback while Kimi waits on capacity approval.
+        model: {
+          primary: "cerebras/qwen-3.8-27b",
+          fallbacks: ["cerebras/gpt-oss-120b"],
+        },
+        skills: [],
         contextInjection: "never",
+        tools: {
+          deny: ["*"],
+        },
       },
     },
   },

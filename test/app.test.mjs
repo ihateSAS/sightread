@@ -89,6 +89,12 @@ test("HTTP server serves UI, health, repos, file inspection, and validates input
   const html = await home.text();
   assert.match(html, /Sightread/);
   assert.match(html, /Speed Race/);
+  assert.match(html, /paired run/);
+  assert.doesNotMatch(html, /function coverageOf/);
+
+  const coverageModule = await fetch(`${base}/coverage.mjs`);
+  assert.equal(coverageModule.status, 200);
+  assert.match(coverageModule.headers.get("content-type"), /text\/javascript/);
 
   const health = await fetch(`${base}/api/health`).then((r) => r.json());
   assert.equal(health.ok, true);

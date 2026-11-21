@@ -3,14 +3,31 @@ import { spawn } from "node:child_process";
 import { basename, join, relative, resolve, sep } from "node:path";
 
 export function runCommand(cmd, args, opts = {}) {
+  // A provider that rate-limits us retries for minutes. The caller gets a
+  // deadline instead, so an unanswered question cannot hold a request open.
+  const { timeoutMs, ...spawnOpts } = opts;
   return new Promise((res) => {
-    const child = spawn(cmd, args, { ...opts, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(cmd, args, { ...spawnOpts, stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     let err = "";
+    let settled = false;
+    let timer = null;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      res(result);
+    };
+    if (timeoutMs > 0) {
+      timer = setTimeout(() => {
+        child.kill("SIGKILL");
+        finish({ code: -2, stdout: out, stderr: err, timedOut: true });
+      }, timeoutMs);
+    }
     child.stdout.on("data", (d) => (out += d));
     child.stderr.on("data", (d) => (err += d));
-    child.on("error", (e) => res({ code: -1, stdout: out, stderr: String(e) }));
-    child.on("close", (code) => res({ code, stdout: out, stderr: err }));
+    child.on("error", (e) => finish({ code: -1, stdout: out, stderr: String(e) }));
+    child.on("close", (code) => finish({ code, stdout: out, stderr: err }));
   });
 }
 

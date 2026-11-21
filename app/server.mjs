@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { createConnection } from "node:net";
+import { randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +8,7 @@ import { loadEnv } from "./lib/env.mjs";
 import { listAvailableRepos, prepareRepo, readCitedFile, runCommand } from "./lib/repo.mjs";
 import { getRaceState, runRaceStream } from "./lib/race.mjs";
 import { buildImportGraph, impactOf, hottestFiles, listSourceFiles } from "./lib/impact.mjs";
+import { createAcpClient } from "./lib/acp.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(HERE, "..");
@@ -19,6 +21,7 @@ const TYPES = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
   ".webp": "image/webp",
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -32,6 +35,26 @@ const TYPES = {
 };
 
 const ALLOWED_THINKING = new Set(["low", "medium", "high"]);
+
+// OpenClaw retries a rate-limited provider turn on its own ladder, which can
+// run for ten minutes while the browser waits on an answer that will fail.
+// Bound the turn here so every request ends with something the UI can show.
+// Observed good turns land in 1.4-7.2s, so 45s leaves room for a slow one and
+// still bounds a rate-limited turn well short of the two minutes it would
+// otherwise spend waiting out 60s retries.
+const ASK_DEADLINE_MS = Math.max(20_000, Number(process.env.SIGHTREAD_DEADLINE_MS) || 45_000);
+
+// Cerebras counts the prompt and the requested output against its 30k
+// tokens/minute budget, so a 429 is a normal outcome, not an outage. Recognise
+// it in whatever the CLI hands back so the app can say that instead of
+// "502 unknown error".
+const RATE_LIMIT = /(token_quota_exceeded|tokens per minute|too many tokens|rate limit|too many requests|\b429\b)/i;
+function rateLimitInfo(text) {
+  const raw = String(text || "");
+  if (!RATE_LIMIT.test(raw)) return null;
+  const after = /retry[- ]after:?\s*(\d+)/i.exec(raw);
+  return { retryAfter: after ? Number(after[1]) : 60 };
+}
 
 // OpenClaw can drop to a fallback model without telling the caller, which would
 // let a demo claim Kimi while a different model answered. Compare what came back
@@ -106,14 +129,18 @@ function impactPrompt(evidence) {
     ].join("\n");
   }
   const indirect = evidence.transitive.filter((t) => t.depth > 1);
+  // Path only: the header already says these are importers, and every token
+  // here is charged against a 30k/minute budget that the whole turn shares.
   return [
     `Computed from real import statements. Changing ${evidence.target.path} affects:`,
-    ...evidence.direct.map((d) => `- ${d.path}${d.line ? ` line ${d.line}` : ""} (direct importer)`),
+    ...evidence.direct.map((d) => `- ${d.path}${d.line ? `:${d.line}` : ""}`),
     ...indirect.slice(0, 20).map((t) => `- ${t.path} (depth ${t.depth})`),
     evidence.direct.length === 0
       ? "Nothing here imports it, so nothing breaks from this change."
       : `Risk: ${evidence.risk.level}, ${evidence.direct.length} direct and ${indirect.length} indirect.`,
-    "This graph is parsed, so do not invent or drop edges. Explain what breaks and cite file:line where the import sits. If the list is empty, say so plainly.",
+    // The graph is complete, so a tool round trip would only re-read what is
+    // already on the page. Saying that here keeps the aided turn to one call.
+    "This graph is parsed and complete, so do not invent or drop edges. Answer from this list directly instead of reading the repository, name the affected paths exactly as listed, and cite the line where each direct import sits. If the list is empty, say so plainly.",
   ].join("\n");
 }
 
@@ -208,6 +235,36 @@ function parseJsonTail(raw) {
   }
 }
 
+// Some gateway envelopes carry an empty usage object. Passing that through made
+// the stats strip print 0→0 tokens, which reads as a measured zero.
+// A turn that produced no envelope: deadline, rate limit, or a broken CLI. Both
+// transports report it the same way so the UI has one shape to render.
+function failedTurn({ transport, elapsedMs, r, fallback, hint }) {
+  const raw = `${r.stderr || ""}\n${r.stdout || ""}`;
+  const limited = rateLimitInfo(raw);
+  return {
+    ok: false,
+    elapsedMs,
+    transport,
+    timedOut: Boolean(r.timedOut),
+    rateLimited: Boolean(limited),
+    retryAfter: limited?.retryAfter ?? null,
+    error: r.timedOut
+      ? `The turn was still running after ${Math.round(ASK_DEADLINE_MS / 1000)}s, so it was stopped.`
+      : (raw.trim() || fallback).slice(0, 800),
+    hint: r.timedOut
+      ? "A rate-limited turn can outlive the deadline. Retry once the provider's minute window clears."
+      : hint,
+  };
+}
+
+function usableUsage(u) {
+  if (!u || typeof u !== "object") return null;
+  const input = typeof u.input === "number" ? u.input : null;
+  const output = typeof u.output === "number" ? u.output : null;
+  return input === null && output === null ? null : { input, output };
+}
+
 function extractTraceTools(trace) {
   if (!Array.isArray(trace)) return null;
   const names = [];
@@ -225,11 +282,19 @@ function extractTraceTools(trace) {
   return { calls: trace.length, tools: names };
 }
 
+// The unaided turn is the baseline, so it has to be a real attempt. Handing it
+// only a repository path invites "I have no file access", which inflates the
+// gap without testing the graph. This asks for a best-effort answer and for
+// guesses to be marked as guesses.
+function unaidedPrompt(question) {
+  return `You have no repository access and no tools this turn. Answer from what you know about this project and its conventions: name the specific files you believe would be affected, and mark anything you are guessing at.\n\n${question}`;
+}
+
 async function askViaExec(cfg, repoPath, question, thinking, evidence) {
   const started = performance.now();
   const prompt = evidence
     ? `${question}\n\n<computed_impact>\n${impactPrompt(evidence)}\n</computed_impact>`
-    : question;
+    : unaidedPrompt(question);
   const r = await runCommand(
     cfg.agentBinary,
     [
@@ -237,24 +302,27 @@ async function askViaExec(cfg, repoPath, question, thinking, evidence) {
       "--cwd", repoPath,
       "--model", cfg.model,
       "--thinking", thinking,
-      "--timeout", "300",
+      "--timeout", String(Math.round(ASK_DEADLINE_MS / 1000)),
       "--json",
     ],
-    { cwd: repoPath }
+    { cwd: repoPath, timeoutMs: ASK_DEADLINE_MS }
   );
   const elapsedMs = Math.round(performance.now() - started);
   const envelope = parseJsonTail(r.stdout);
 
   if (!envelope) {
-    return {
-      ok: false,
-      elapsedMs,
+    return failedTurn({
       transport: "exec",
-      error: (r.stderr || r.stdout || "no output from openclaw").slice(0, 800),
+      elapsedMs,
+      r,
+      fallback: "no output from openclaw",
       hint: "Run ./check-cerebras.sh, or start the warm gateway with `npm run gateway`.",
-    };
+    });
   }
+  const limited = rateLimitInfo(`${envelope.error?.message || ""}\n${r.stderr}`);
   return {
+    rateLimited: Boolean(limited),
+    retryAfter: limited?.retryAfter ?? null,
     ok: envelope.ok !== false,
     final: envelope.final ?? "",
     usage: envelope.usage ?? null,
@@ -274,47 +342,50 @@ async function askViaGateway(cfg, repoPath, question, thinking, sessionId, evide
   const started = performance.now();
   const prompt = evidence
     ? `Repository: ${repoPath}\n\n${question}\n\n<computed_impact>\n${impactPrompt(evidence)}\n</computed_impact>`
-    : `Repository: ${repoPath}\n\n${question}`;
+    : `Repository: ${repoPath}\n\n${unaidedPrompt(question)}`;
+  // Every question is independent unless the caller explicitly asks to follow
+  // up. Without an id OpenClaw falls back to the agent's main session, so each
+  // ask would replay every earlier turn's history and inflate the prompt.
+  const sid = /^[a-zA-Z0-9_.-]{1,80}$/.test(String(sessionId || "")) ? sessionId : randomUUID();
   const args = [
     "agent", "-m", prompt,
     "--agent", cfg.agent,
     "--model", cfg.model,
     "--thinking", thinking,
-    "--timeout", "300",
+    "--timeout", String(Math.round(ASK_DEADLINE_MS / 1000)),
     "--json",
+    "--session-id", sid,
   ];
-  if (sessionId && /^[a-zA-Z0-9_.-]{1,80}$/.test(sessionId)) {
-    args.push("--session-id", sessionId);
-  }
-  const r = await runCommand(cfg.agentBinary, args);
+  const r = await runCommand(cfg.agentBinary, args, { timeoutMs: ASK_DEADLINE_MS + 5_000 });
   const elapsedMs = Math.round(performance.now() - started);
   const env = parseJsonTail(r.stdout);
 
   if (!env) {
-    return {
-      ok: false,
-      elapsedMs,
+    return failedTurn({
       transport: "gateway",
-      error: (r.stderr || r.stdout || "no output from gateway").slice(0, 800),
+      elapsedMs,
+      r,
+      fallback: "no output from gateway",
       hint: "Is the gateway running? Start it with `npm run gateway` (it sources .env).",
-    };
+    });
   }
   const meta = env.result?.meta ?? {};
   const agentMeta = meta.agentMeta ?? {};
+  const limited = rateLimitInfo(`${env.error?.message || ""}\n${r.stderr}`);
   const toolSummary =
     meta.toolSummary ||
     extractTraceTools(meta.executionTrace) ||
     null;
 
   return {
+    rateLimited: Boolean(limited),
+    retryAfter: limited?.retryAfter ?? null,
     ok: env.status === "ok",
     final: env.result?.payloads?.[0]?.text ?? env.final ?? "",
-    usage: agentMeta.usage
-      ? { input: agentMeta.usage.input, output: agentMeta.usage.output }
-      : (env.usage ?? null),
+    usage: usableUsage(agentMeta?.usage) ?? usableUsage(env.usage),
     toolSummary,
     assistantTurns: meta.assistantTurns ?? agentMeta.turns ?? (toolSummary ? toolSummary.calls + 1 : 1),
-    sessionId: meta.sessionId ?? agentMeta.sessionId ?? sessionId ?? null,
+    sessionId: meta.sessionId ?? agentMeta.sessionId ?? sid,
     model: agentMeta.model ?? cfg.model,
     transport: "gateway",
     elapsedMs,
@@ -342,6 +413,81 @@ export function createAppServer({
     return modelCheck;
   };
 
+  // Shared by the JSON and streaming ask routes: same validation, same evidence,
+  // so the two cannot disagree about what a question is allowed to see.
+  async function prepareAsk(cfg, body) {
+    const { repo, question, thinking: rawThinking, impactPath, impact: rawImpact } = body;
+    if (!question || !String(question).trim()) {
+      return { error: 400, body: { error: "question is required" } };
+    }
+    // Qwen on Cerebras can spend a short answer's whole budget on hidden
+    // reasoning and return no text at all, so this model only answers reliably
+    // with thinking off. Other models keep the level the page selects.
+    const thinking = /qwen/i.test(cfg.model)
+      ? "off"
+      : ALLOWED_THINKING.has(rawThinking)
+        ? rawThinking
+        : "low";
+    const target = resolve(repo || projectRoot);
+    const isDir = await stat(target).then((s) => s.isDirectory()).catch(() => false);
+    if (!isDir) return { error: 400, body: { error: `not a directory: ${target}` } };
+
+    const blocked = cerebrasKeyProblem(cfg);
+    if (blocked) {
+      return {
+        error: 400,
+        body: {
+          ok: false,
+          error: blocked.error,
+          hint: blocked.hint,
+          configuredModel: cfg.model,
+          impactDisabled: rawImpact === false,
+        },
+      };
+    }
+    if (/^cerebras\//i.test(cfg.model)) {
+      const probe = await checkModel(cfg);
+      if (probe.present === false) {
+        return {
+          error: 400,
+          body: {
+            ok: false,
+            error: `OpenClaw has no model ${cfg.model}, so the turn cannot start.`,
+            hint: "Apply ./openclaw/kimi-cerebras.patch.json5, restart the gateway, then retry.",
+            configuredModel: cfg.model,
+            impactDisabled: rawImpact === false,
+          },
+        };
+      }
+    }
+
+    // Evidence first, and only for change questions. Parsing is cached, so this
+    // costs well under a millisecond on a warmed repo. Passing impact:false
+    // answers from the model alone, which is what the demo compares against.
+    const useImpact = rawImpact !== false;
+    const impactStart = performance.now();
+    const evidence = useImpact
+      ? await impactEvidence(target, String(question).trim(), impactPath ? String(impactPath) : null).catch(
+          () => null
+        )
+      : null;
+
+    return {
+      question: String(question).trim(),
+      target,
+      thinking,
+      useImpact,
+      evidence,
+      impactMs: evidence ? Math.round(performance.now() - impactStart) : null,
+    };
+  }
+
+  // The ACP bridge is spawned once and reused; the first spawn costs ~1.8s.
+  const acp = createAcpClient({
+    bin: process.env.OPENCLAW_BIN || "openclaw",
+    agent: process.env.SIGHTREAD_AGENT || "sightread",
+  });
+
   // Warm the probe so the first blocked ask answers from cache instead of
   // paying the CLI start itself.
   const bootCfg = getConfig();
@@ -349,7 +495,7 @@ export function createAppServer({
     checkModel(bootCfg).catch(() => {});
   }
 
-  return createServer(async (req, res) => {
+  const server = createServer(async (req, res) => {
     const cfg = getConfig();
     try {
       const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
@@ -440,56 +586,15 @@ export function createAppServer({
       }
 
       if (req.method === "POST" && url.pathname === "/api/ask") {
-        const { repo, question, thinking: rawThinking, sessionId, impactPath, impact: rawImpact } = await readBody(req);
-        if (!question || !String(question).trim()) {
-          return json(res, 400, { error: "question is required" });
-        }
-        const thinking = ALLOWED_THINKING.has(rawThinking) ? rawThinking : "low";
-        const target = resolve(repo || projectRoot);
-        const isDir = await stat(target).then((s) => s.isDirectory()).catch(() => false);
-        if (!isDir) return json(res, 400, { error: `not a directory: ${target}` });
-
-        const blocked = cerebrasKeyProblem(cfg);
-        if (blocked) {
-          return json(res, 400, {
-            ok: false,
-            error: blocked.error,
-            hint: blocked.hint,
-            configuredModel: cfg.model,
-            impactDisabled: rawImpact === false,
-          });
-        }
-        if (/^cerebras\//i.test(cfg.model)) {
-          const probe = await checkModel(cfg);
-          if (probe.present === false) {
-            return json(res, 400, {
-              ok: false,
-              error: `OpenClaw has no model ${cfg.model}, so the turn cannot start.`,
-              hint: "Apply ./openclaw/kimi-cerebras.patch.json5, restart the gateway, then retry.",
-              configuredModel: cfg.model,
-              impactDisabled: rawImpact === false,
-            });
-          }
-        }
+        const body = await readBody(req);
+        const prep = await prepareAsk(cfg, body);
+        if (prep.error) return json(res, prep.error, prep.body);
+        const { question, target, thinking, useImpact, evidence, impactMs } = prep;
+        const sessionId = body.sessionId;
 
         const useGateway =
           cfg.transport === "gateway" ||
           (cfg.transport === "auto" && (await isGatewayReachable(cfg.gatewayPort)));
-
-        // Evidence first, and only for change questions. Parsing is cached, so
-        // this costs well under a millisecond on a warmed repo. Passing
-        // impact:false answers from the model alone, which is what the demo
-        // needs to show the graph beating a guess.
-        const useImpact = rawImpact !== false;
-        const impactStart = performance.now();
-        const evidence = useImpact
-          ? await impactEvidence(
-              target,
-              String(question).trim(),
-              impactPath ? String(impactPath) : null
-            ).catch(() => null)
-          : null;
-        const impactMs = evidence ? Math.round(performance.now() - impactStart) : null;
 
         const result = useGateway
           ? await askViaGateway(cfg, target, String(question).trim(), thinking, sessionId, evidence)
@@ -501,7 +606,90 @@ export function createAppServer({
         result.impactUsed = Boolean(evidence);
         result.configuredModel = cfg.model;
         result.modelMismatch = modelMismatch(cfg.model, result.model);
+        if (result.rateLimited) {
+          return json(res, 429, {
+            ...result,
+            ok: false,
+            error: `Cerebras rate limited this turn on tokens per minute, so no answer was produced.`,
+            hint: `The public tier allows 30,000 tokens/minute, and Cerebras counts the requested output against it too. Wait ${result.retryAfter ?? 60}s and ask again, or turn the paired run off to spend one turn instead of two.`,
+          });
+        }
         return json(res, result.ok ? 200 : 502, result);
+      }
+
+      // Streaming ask. The CLI only prints the finished envelope, so this route
+      // goes through the ACP bridge, which emits text as the model writes it.
+      // The first token time here is real: it is the first chunk the browser got.
+      if (req.method === "POST" && url.pathname === "/api/ask/stream") {
+        const body = await readBody(req);
+        const prep = await prepareAsk(cfg, body);
+        if (prep.error) return json(res, prep.error, prep.body);
+
+        res.writeHead(200, {
+          "content-type": "text/event-stream; charset=utf-8",
+          "cache-control": "no-store",
+          connection: "keep-alive",
+        });
+        const send = (event, data) => {
+          if (!res.writableEnded) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        };
+
+        const started = performance.now();
+        let ttftMs = null;
+        let text = "";
+        const prompt = prep.evidence
+          ? `Repository: ${prep.target}\n\n${prep.question}\n\n<computed_impact>\n${impactPrompt(prep.evidence)}\n</computed_impact>`
+          : `Repository: ${prep.target}\n\n${unaidedPrompt(prep.question)}`;
+
+        send("meta", {
+          impact: prep.evidence,
+          impactMs: prep.impactMs,
+          impactUsed: Boolean(prep.evidence),
+          impactDisabled: !prep.useImpact,
+          configuredModel: cfg.model,
+          thinking: prep.thinking,
+        });
+
+        try {
+          const out = await acp.ask({
+            prompt,
+            cwd: prep.target,
+            thinking: prep.thinking,
+            // The streamed turn obeys the same deadline as the JSON route, so a
+            // stuck turn cannot outlive the one the UI promises to stop.
+            timeoutMs: ASK_DEADLINE_MS,
+            onChunk: (chunk) => {
+              if (ttftMs === null) ttftMs = Math.round(performance.now() - started);
+              text += chunk;
+              send("delta", { text: chunk, t: Math.round(performance.now() - started) });
+            },
+          });
+          send("done", {
+            ok: true,
+            final: text,
+            ttftMs,
+            elapsedMs: Math.round(performance.now() - started),
+            agentMs: out.elapsedMs,
+            assistantTurns: null,
+            toolSummary: out.toolCalls ? { calls: out.toolCalls } : null,
+            sessionId: out.sessionId,
+            stopReason: out.stopReason,
+            model: cfg.model,
+            configuredModel: cfg.model,
+            transport: "acp",
+            impact: prep.evidence,
+            impactMs: prep.impactMs,
+            impactUsed: Boolean(prep.evidence),
+            impactDisabled: !prep.useImpact,
+          });
+        } catch (e) {
+          send("failed", {
+            ok: false,
+            error: `Streaming turn failed: ${e.message}`,
+            hint: "The page falls back to /api/ask automatically. Run ./check-cerebras.sh if it keeps failing.",
+          });
+        }
+        return res.end();
       }
 
       // Impact map. Parsing a repo is the expensive part, so the graph is
@@ -541,6 +729,11 @@ export function createAppServer({
       return json(res, 500, { error: e.message });
     }
   });
+
+  // The bridge is spawned on demand; expose it so the entry point can warm it.
+  server.acp = acp;
+  server.on("close", () => acp.close());
+  return server;
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

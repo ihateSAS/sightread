@@ -756,9 +756,9 @@
             <button type="button" data-thinking="medium">medium</button>
             <button type="button" data-thinking="high">high</button>
           </div>
-          <label class="evidence" id="evidence-label" title="Off answers from the model alone, with no parsed imports in the prompt">
+          <label class="evidence" id="evidence-label" title="On: answer once with parsed imports and once without, then count the gap. Off: one answer from the model alone.">
             <input type="checkbox" id="evidence" checked />
-            <span>graph evidence</span>
+            <span>paired run</span>
             <b id="evidence-state">on</b>
           </label>
           <button id="session-toggle" class="chip-btn" type="button" style="display:none" title="Continue in the same OpenClaw session or start fresh">New turn</button>
@@ -784,6 +784,7 @@
     <section class="answer" id="answer">
       <div class="answer-card">
         <div class="stats">
+          <div class="stat"><b id="s-ttft">–</b><span>first token</span></div>
           <div class="stat"><b id="s-time">–</b><span>wall clock</span></div>
           <div class="stat"><b id="s-turns">–</b><span>agent turns</span></div>
           <div class="stat"><b id="s-tools">–</b><span>tool calls</span></div>
@@ -884,7 +885,9 @@
   </div>
 </footer>
 
-<script>
+<script type="module">
+import { coverageOf, hasDownstream } from "./coverage.mjs";
+
 const $ = (id) => document.getElementById(id);
 
 let currentRepo = "";
@@ -1065,15 +1068,19 @@ $("repo").addEventListener("input", () => {
   $("repo-chips").querySelectorAll(".chip-btn").forEach((b) => b.classList.remove("active"));
 });
 
-// ---- graph evidence toggle ----
-// Off means the ask prompt gets no computed impact block, so the answer is
-// whatever the model can work out from reading files. The panel keeps showing
-// the parsed graph, which is the whole point of the comparison.
+// ---- paired run toggle ----
+// On: the answer gets the computed impact block, then the same model answers
+// again without it, and the gap is counted. Off: one answer from the model
+// alone. The impact panel shows the parsed graph either way.
 $("evidence").addEventListener("change", (e) => {
   useEvidence = e.target.checked;
   $("evidence-state").textContent = useEvidence ? "on" : "off";
   $("evidence-label").classList.toggle("off", !useEvidence);
-  setStatus(useEvidence ? "graph evidence on" : "graph evidence off: the model answers alone");
+  setStatus(
+    useEvidence
+      ? "paired run on: with the graph, then without it"
+      : "paired run off: one answer from the model alone"
+  );
 });
 
 // ---- prompt & thinking controls ----
@@ -1117,6 +1124,57 @@ async function post(path, body) {
   });
   const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
   return { ok: res.ok, data };
+}
+
+// Reads the SSE stream from /api/ask/stream. onDelta fires per chunk, so the
+// answer is on screen before the turn is finished.
+async function streamAsk(body, onDelta, onMeta) {
+  let res;
+  try {
+    res = await fetch("/api/ask/stream", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { ok: false, data: null };
+  }
+  if (!res.ok || !res.body) return { ok: false, data: await res.json().catch(() => null) };
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let meta = null;
+  let final = null;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf("\n\n")) >= 0) {
+      const frame = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+      const lines = frame.split("\n");
+      const evLine = lines.find((l) => l.startsWith("event: "));
+      const dataLine = lines.find((l) => l.startsWith("data: "));
+      if (!evLine || !dataLine) continue;
+      let data;
+      try {
+        data = JSON.parse(dataLine.slice(6));
+      } catch {
+        continue;
+      }
+      const name = evLine.slice(7).trim();
+      if (name === "meta") {
+        meta = data;
+        onMeta?.(data);
+      } else if (name === "delta") onDelta(data.text, data.t);
+      else if (name === "done") final = data;
+      else if (name === "failed") final = { ok: false, ...data };
+    }
+  }
+  if (!final) return { ok: false, data: null };
+  return { ok: final.ok !== false, data: { ...meta, ...final } };
 }
 
 function esc(s) {
@@ -1315,41 +1373,6 @@ $("prep").addEventListener("click", async () => {
   loadRepos();
 });
 
-function refsInAnswer(text) {
-  const refs = new Set();
-  const re = /([\w./-]+\.(?:js|mjs|cjs|ts|tsx|jsx|py|go|rs|rb|java|kt|cc|cpp|h|c|php|swift|ex|exs))(?::\d+)?/g;
-  for (const m of String(text || "").matchAll(re)) refs.add(m[1].replace(/^\.\//, ""));
-  return refs;
-}
-
-// The product claim: of the files the graph lists, how many does the same model
-// name when it has the graph, and how many when it has nothing but the repo?
-function coverageOf(impact, aidedText, unaidedText) {
-  // impact.transitive includes the direct importers at depth 1, which would
-  // double-count them against direct. Count each downstream file once.
-  const indirect = (impact?.transitive || []).filter((t) => t.depth > 1);
-  const paths = [...(impact?.direct || []), ...indirect].map((x) => x.path);
-  const graph = new Set(paths);
-  const byBase = new Map();
-  for (const p of paths) {
-    const base = p.split("/").pop();
-    if (!byBase.has(base)) byBase.set(base, p);
-  }
-  const hits = (refs) => {
-    const named = new Set();
-    for (const ref of refs) {
-      const file = graph.has(ref) ? ref : byBase.get(ref.split("/").pop());
-      if (file) named.add(file);
-    }
-    return named.size;
-  };
-  return {
-    graph: graph.size,
-    withGraph: hits(refsInAnswer(aidedText)),
-    alone: hits(refsInAnswer(unaidedText)),
-  };
-}
-
 function renderBlindspot(result) {
   const host = $("blindspot");
   if (!result) {
@@ -1369,17 +1392,20 @@ function renderBlindspot(result) {
       renderMarkdown(result.unaided?.final || "(empty response)");
 }
 
-async function loadBlindspot(primary, question, repo, seq) {
+async function loadBlindspot(primary, question, repo, seq, pending) {
   $("blindspot").hidden = false;
   $("blindspot-meta").textContent = "asking the same model with no graph…";
   $("blindspot-body").innerHTML = "";
-  const { data } = await post("/api/ask", {
-    repo,
-    question,
-    thinking: thinkingEffort,
-    impact: false,
-    sessionId: null,
-  });
+  // When the graph arrived early, the unaided turn is already running.
+  const { data } = pending
+    ? await pending
+    : await post("/api/ask", {
+        repo,
+        question,
+        thinking: thinkingEffort,
+        impact: false,
+        sessionId: null,
+      });
   if (seq !== blindspotSeq) return;
   const result = {
     coverage: data.error ? null : coverageOf(primary.impact, primary.final || "", data.final || ""),
@@ -1398,6 +1424,7 @@ function paintResult(data) {
   // A failed turn has no meaningful wall clock: it measures process start, not
   // an answer, so show a dash instead of a number that reads as latency.
   const failed = data.ok === false || Boolean(data.error);
+  $("s-ttft").textContent = !failed && data.ttftMs != null ? (data.ttftMs / 1000).toFixed(2) + "s" : "–";
   $("s-time").textContent = !failed && data.elapsedMs != null ? (data.elapsedMs / 1000).toFixed(2) + "s" : "–";
   $("s-turns").textContent = data.assistantTurns ?? "–";
   $("s-tools").textContent = data.toolSummary?.calls ?? "–";
@@ -1437,7 +1464,7 @@ function paintResult(data) {
     setStatus("failed");
   } else {
     const note = data.impactDisabled
-      ? `<div class="note">Graph evidence off. This is the model answering alone, with no parsed imports in its prompt.</div>`
+      ? `<div class="note">Paired run off. This is the model answering alone, with no parsed imports in its prompt.</div>`
       : "";
     const warn = data.modelMismatch
       ? `<div class="warn" role="status">Answered by <b>${esc(data.model)}</b>, not the configured <b>${esc(data.configuredModel || "model")}</b>. The fallback fired, so do not label this run with the primary.</div>`
@@ -1481,7 +1508,7 @@ async function ask() {
   $("answer").classList.add("on");
   $("proof").style.display = "none";
   $("answer-layout").classList.remove("with-proof");
-  ["s-time", "s-turns", "s-tools", "s-tps", "s-tokens"].forEach((id) => ($(id).textContent = "–"));
+  ["s-ttft", "s-time", "s-turns", "s-tools", "s-tps", "s-tokens"].forEach((id) => ($(id).textContent = "–"));
   $("s-body").innerHTML = "";
   $("s-tools-list").innerHTML = "";
   blindspotSeq += 1;
@@ -1497,14 +1524,47 @@ async function ask() {
   };
   tick();
 
-  const { data } = await post("/api/ask", {
+  const payload = {
     repo,
     question,
     thinking: thinkingEffort,
     sessionId: useSessionFollowup ? lastSessionId : null,
     impactPath: selectedImpactPath,
     impact: useEvidence,
-  });
+  };
+
+  // Paint the answer while it is being written, and put the first-token time on
+  // screen the moment it is known instead of waiting for the turn to finish.
+  let streamedText = "";
+  let painting = false;
+  const paintStream = (text, t) => {
+    if (!painting) {
+      $("s-body").innerHTML = "";
+      const pre = document.createElement("div");
+      pre.id = "s-stream";
+      pre.style.whiteSpace = "pre-wrap";
+      $("s-body").appendChild(pre);
+      painting = true;
+    }
+    streamedText += text;
+    const el = document.getElementById("s-stream");
+    if (el) el.textContent = streamedText;
+    if (t != null && $("s-ttft").textContent === "–") {
+      $("s-ttft").textContent = (t / 1000).toFixed(2) + "s";
+    }
+  };
+
+  // Start the no-graph turn the moment the parsed impact is known, so the two
+  // answers run at the same time instead of one after the other.
+  let unaided = null;
+  const startUnaided = (meta) => {
+    if (!useEvidence || unaided || !meta.impactUsed || !hasDownstream(meta.impact)) return;
+    unaided = post("/api/ask", { repo, question, thinking: thinkingEffort, impact: false, sessionId: null });
+  };
+
+  const turned = await streamAsk(payload, paintStream, startUnaided);
+  // Only pay for a second attempt when the stream produced nothing at all.
+  const { data } = turned.ok || streamedText ? turned : await post("/api/ask", payload);
   cancelAnimationFrame(raf);
   $("ask").disabled = false;
 
@@ -1518,8 +1578,10 @@ async function ask() {
   // when the question was about a change, show the computed edges next to it.
   if (data.impact?.mode === "impact") renderImpactBody(data.impact);
   else if (data.impact?.mode === "hubs") renderHot(data.impact.hot);
-  if (useEvidence && !data.error && data.impactUsed && data.impact?.mode === "impact") {
-    loadBlindspot(data, question, repo, seq);
+  // Nothing downstream means nothing to compare: a second turn would only
+  // spend tokens to report a gap over an empty graph.
+  if (useEvidence && !data.error && data.impactUsed && hasDownstream(data.impact)) {
+    loadBlindspot(data, question, repo, seq, unaided);
   }
   if (!data.error) {
     historyItems.unshift({ question, data });
@@ -1572,7 +1634,11 @@ async function loadRaceState() {
   const b = $("race-banner");
   b.textContent = "";
   if (s.cerebras.ready && s.openrouter.ready) {
-    b.innerHTML = `Both providers live. <b>${esc(s.cerebras.model)}</b> vs <b>${esc(s.openrouter.model)}</b>`;
+    const same = s.sameModel ? "Same model on both lanes." : "Different models: this compares models, not silicon.";
+    const kimi = /kimi/i.test(s.cerebras.model)
+      ? ""
+      : ` Kimi K3.1 Pro is pending capacity approval, so this race runs <b>${esc(s.cerebras.model)}</b> on both lanes.`;
+    b.innerHTML = `Both providers live. <b>${esc(s.cerebras.model)}</b> vs <b>${esc(s.openrouter.model)}</b>. ${same}${kimi}`;
   } else if (s.cerebras.ready && !s.openrouter.ready) {
     b.innerHTML = `Cerebras live (<b>${esc(s.cerebras.model)}</b>). OpenRouter not configured: add <code>OPENROUTER_API_KEY</code> to <code>.env</code> for a live opponent.`;
   } else {

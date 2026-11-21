@@ -8,6 +8,15 @@
 // gpt-oss-120b is on public shared inference, so this config is testable *before*
 // your private-preview approval lands. Prove the loop on it, then switch.
 {
+  // memory-core runs background "dreaming" and narrative summarisation, and
+  // those model calls bill against the same 30k tokens/minute key as the demo.
+  // One narrative run falling back to Cerebras is enough to rate limit the next
+  // question, so the plugin stays off for this harness.
+  plugins: {
+    entries: {
+      "memory-core": { enabled: false },
+    },
+  },
   agents: {
     defaults: {
       model: {
@@ -39,7 +48,10 @@
             // `curl -s https://api.cerebras.ai/v1/models` at kickoff and set this
             // to the advertised context_length -- never claim more than the endpoint serves.
             contextWindow: 262144,
-            maxTokens: 32768,
+            // Cerebras counts prompt + max_tokens against its 30k/minute
+            // budget, so asking for 32k output reserves the whole window
+            // before the model says anything. Answers here are short.
+            maxTokens: 4096,
             // Free during the hackathon; zeros stop OpenClaw from pre-flighting on cost.
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
             compat: {
@@ -55,8 +67,23 @@
             reasoning: true,
             input: ["text"],
             contextWindow: 131072,
-            maxTokens: 32768,
+            maxTokens: 4096,
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          },
+          {
+            id: "qwen-3.8-27b",
+            name: "Qwen 3.8 27B (Cerebras)",
+            reasoning: true,
+            input: ["text"],
+            contextWindow: 131072,
+            maxTokens: 4096,
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+            compat: {
+              // Qwen spends a short answer's whole budget thinking unless it is
+              // told "none", on Cerebras and on OpenRouter alike.
+              supportsReasoningEffort: true,
+              supportedReasoningEfforts: ["none", "low", "medium", "high"],
+            },
           },
         ],
       },

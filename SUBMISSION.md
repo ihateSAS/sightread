@@ -1,6 +1,6 @@
 # Submission Pack
 
-The copy is written. Only the speed figures stay blank until the Cerebras key is in, and
+The copy is written. Only the Kimi speed figures stay blank until capacity lands, and
 nothing gets published with a blank left in it.
 
 ---
@@ -16,8 +16,8 @@ Project Description:
 Ask Sightread about a change to a repository and it answers twice: once with the
 parsed import graph in the prompt, and once with the same model and no graph at
 all. Point it at Express, ask about lib/application.js, and the graph lists 100
-downstream files starting at lib/express.js line 18, while the unaided run has to
-work that list out from the files it chooses to open. The pair is the product:
+downstream files starting at lib/express.js line 18, while the same model, with the
+same tools and no graph, has to work that list out itself. The pair is the product:
 computed evidence with clickable file and line citations, the model's answer
 without that evidence, and a count of how much of the graph the unaided run named.
 The agent loop, not the model, is the slow part of a code question: at <tok/s> the
@@ -46,9 +46,12 @@ on-screen values are known in advance. Total runtime 0:58, two seconds of slack.
    under it. Note the coverage count, because it is the number you will point at.
    **Do not reload the page after this.** The populated panel is what the recording
    opens on.
-3. Zoom the browser to 110 percent. Hide the bookmarks bar and any notification
+3. **Wait 60 seconds after that pre-flight pair before recording.** The public
+   Cerebras key allows 30,000 tokens/minute, and a pre-flight pair plus a filmed
+   pair inside the same minute will rate limit the take you are shooting.
+4. Zoom the browser to 110 percent. Hide the bookmarks bar and any notification
    banner. No `.env`, no terminal with the key, no Discord in frame.
-4. Start the timer at 0:00 and record the whole viewport. Do not cut between beats;
+5. Start the timer at 0:00 and record the whole viewport. Do not cut between beats;
    the run has to look continuous.
 
 ### The beats
@@ -104,10 +107,12 @@ many of those hundred files the model names on its own. Graph tools that do blas
 radius already exist; what I had not seen was the model's own answer next to that
 evidence, with the gap counted. That comparison is the point of the project.
 
-Speed is load-bearing here because the agent reads source files one at a time
-inside a single OpenClaw turn. On Kimi K3.1 Pro via Cerebras the whole scoped read
-and answer lands in <TTFT>s at <tok/s>. The same loop on a slow endpoint is the
-reason people stop asking questions of their codebase.
+Speed is load-bearing here because every change question is answered twice. The
+graph replaces exploration rather than adding to it: the aided answer is one agent
+turn with no tool calls. On Kimi K3.1 Pro via Cerebras the second answer lands in
+<TTFT>s at <tok/s>, which is what makes asking twice usable instead of wasteful.
+The same pair on a slow endpoint is the reason people stop asking their codebase
+questions.
 
 60 second demo: <video attached>
 Code, MIT: https://github.com/ihateSAS/sightread

@@ -19,11 +19,23 @@ export function getSides() {
   };
 }
 
+// Providers prefix the same weights differently (gpt-oss-120b vs
+// openai/gpt-oss-120b), so compare the model name without its namespace.
+const baseModel = (id) =>
+  String(id || "")
+    .split("/")
+    .pop()
+    .toLowerCase()
+    .replace(/[^a-z0-9.]/g, "");
+
 export function getRaceState() {
   const SIDES = getSides();
+  const cerebras = SIDES.cerebras.model();
+  const openrouter = SIDES.openrouter.model();
   return {
-    cerebras: { model: SIDES.cerebras.model(), ready: Boolean(SIDES.cerebras.key()) },
-    openrouter: { model: SIDES.openrouter.model(), ready: Boolean(SIDES.openrouter.key()) },
+    cerebras: { model: cerebras, ready: Boolean(SIDES.cerebras.key()) },
+    openrouter: { model: openrouter, ready: Boolean(SIDES.openrouter.key()) },
+    sameModel: baseModel(cerebras) === baseModel(openrouter),
   };
 }
 
@@ -45,8 +57,17 @@ async function runSide(side, cfg, prompt, maxTokens, reasoningEffort, t0, send, 
     stream: true,
     stream_options: { include_usage: true },
   };
-  if (side === "cerebras" && ALLOWED_EFFORTS.has(reasoningEffort)) {
-    payloadBody.reasoning_effort = reasoningEffort;
+  // Qwen will happily spend a short answer's whole budget on hidden reasoning
+  // and then return no text at all, on either provider. The race measures
+  // generation, so thinking is turned off explicitly for that model.
+  if (/qwen/i.test(model)) {
+    if (side === "cerebras") payloadBody.reasoning_effort = "none";
+    else payloadBody.reasoning = { enabled: false };
+  } else if (ALLOWED_EFFORTS.has(reasoningEffort)) {
+    // Without this, OpenRouter runs at its provider default and can burn the
+    // whole budget thinking. Cerebras takes the flat field, OpenRouter the object.
+    if (side === "cerebras") payloadBody.reasoning_effort = reasoningEffort;
+    else payloadBody.reasoning = { effort: reasoningEffort === "max" ? "high" : reasoningEffort };
   }
 
   let res;
@@ -78,6 +99,7 @@ async function runSide(side, cfg, prompt, maxTokens, reasoningEffort, t0, send, 
   const decoder = new TextDecoder();
   let buffer = "";
   let chars = 0;
+  let reasoningChars = 0;
   let chunks = 0;
   let tokens = null;
   let firstTokenMs = null;
@@ -111,7 +133,11 @@ async function runSide(side, cfg, prompt, maxTokens, reasoningEffort, t0, send, 
       if (obj.time_info && typeof obj.time_info.completion_time === "number") {
         completionTimeSec = obj.time_info.completion_time;
       }
-      const text = obj.choices?.[0]?.delta?.content;
+      const delta = obj.choices?.[0]?.delta;
+      // Reasoning is not the answer: track it so a budget spent entirely on
+      // thinking becomes a visible error instead of an empty pane.
+      reasoningChars += (delta?.reasoning || "").length + (delta?.reasoning_content || "").length;
+      const text = delta?.content;
       if (text) {
         if (firstTokenMs === null) firstTokenMs = now();
         chars += text.length;
@@ -122,6 +148,17 @@ async function runSide(side, cfg, prompt, maxTokens, reasoningEffort, t0, send, 
   }
 
   const totalMs = now();
+  if (chars === 0) {
+    send({
+      side,
+      event: "error",
+      model,
+      reason: reasoningChars
+        ? `No answer text: the model spent the whole budget reasoning (${reasoningChars.toLocaleString()} chars). Lower the effort or raise the token cap.`
+        : `No answer text arrived (${tokens ?? 0} tokens). The provider may have refused this prompt.`,
+    });
+    return;
+  }
   send({
     side,
     event: "done",
@@ -131,6 +168,7 @@ async function runSide(side, cfg, prompt, maxTokens, reasoningEffort, t0, send, 
     tokens,
     chunks,
     chars,
+    reasoningChars,
     exact: tokens !== null,
     tps: tokens && totalMs > 0 ? +(tokens / (totalMs / 1000)).toFixed(1) : null,
     serverTps: tokens && completionTimeSec > 0 ? +(tokens / completionTimeSec).toFixed(1) : null,
