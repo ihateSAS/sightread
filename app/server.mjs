@@ -12,6 +12,7 @@ const PORT = (() => {
   return Number.isInteger(n) && n > 0 && n < 65536 ? n : 8787;
 })();
 const MODEL = process.env.SIGHTREAD_MODEL || "cerebras/gpt-oss-120b";
+const TRANSPORT = process.env.SIGHTREAD_TRANSPORT || "exec";
 
 const agentBinary = process.env.OPENCLAW_BIN || "openclaw";
 
@@ -121,6 +122,48 @@ async function ask(repoPath, question) {
   };
 }
 
+// Warm path: talk to an already-running gateway instead of paying process
+// start-up on every question. Measured ~3s cheaper per turn.
+async function askViaGateway(question) {
+  const started = performance.now();
+  const r = await run(agentBinary, [
+    "agent", "-m", question,
+    "--model", MODEL,
+    "--thinking", "low",
+    "--timeout", "300",
+    "--json",
+  ]);
+  const raw = r.stdout.trim();
+  const first = raw.indexOf("{");
+  let env = null;
+  if (first !== -1) {
+    try { env = JSON.parse(raw.slice(first)); } catch { /* keep null */ }
+  }
+  const elapsedMs = Math.round(performance.now() - started);
+  if (!env) {
+    return {
+      ok: false, elapsedMs,
+      error: (r.stderr || raw || "no output").slice(0, 800),
+      hint: "Is the gateway running? Try: openclaw gateway status",
+    };
+  }
+  const meta = env.result?.meta ?? {};
+  const agentMeta = meta.agentMeta ?? {};
+  return {
+    ok: env.status === "ok",
+    final: env.result?.payloads?.[0]?.text ?? "",
+    usage: agentMeta.usage
+      ? { input: agentMeta.usage.input, output: agentMeta.usage.output }
+      : null,
+    toolSummary: Array.isArray(meta.executionTrace) ? { calls: meta.executionTrace.length } : null,
+    assistantTurns: null,
+    model: agentMeta.model ?? MODEL,
+    elapsedMs,
+    agentMs: meta.durationMs ?? null,
+    error: env.error?.message ?? null,
+  };
+}
+
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
@@ -153,7 +196,9 @@ const server = createServer(async (req, res) => {
       const target = resolve(repo || REPOS);
       const isDir = await stat(target).then((s) => s.isDirectory()).catch(() => false);
       if (!isDir) return json(res, 400, { error: `not a directory: ${target}` });
-      const result = await ask(target, question);
+      const result = TRANSPORT === "gateway"
+        ? await askViaGateway(question)
+        : await ask(target, question);
       return json(res, result.ok ? 200 : 502, result);
     }
 
