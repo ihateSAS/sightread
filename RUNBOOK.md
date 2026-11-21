@@ -151,3 +151,4 @@ Non-negotiable. A rested 7 AM take beats a fried 6 AM one.
 | right pane says `skip` | `OPENROUTER_API_KEY` unset — race runs unopposed, still recordable |
 | `429` | slow down; you're on the public tier (form missed) |
 | agent answers with no tool calls | `repo-read` not installed globally — re-run the install |
+| `402 ... requires more credits` on OpenRouter | OpenClaw sizes `max_tokens` from the model's 1M window, so a $5 key is rejected at pre-flight. A provider `maxTokens` cap does not override it. The race route is unaffected: it sends an explicit `maxTokens` and works on the same key. |
