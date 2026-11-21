@@ -4,32 +4,51 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#05070b" />
+<link rel="icon" type="image/png" href="/icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@300;400;500&display=swap" rel="stylesheet" />
 <title>Sightread — ask a codebase anything</title>
 <style>
   :root {
     --void: #05070b;
     --ink: #0a0d13;
-    --line: rgba(255, 255, 255, 0.10);
+    --panel: rgba(12, 16, 24, 0.78);
+    --panel-strong: rgba(10, 14, 22, 0.92);
+    --glass: rgba(12, 16, 25, 0.54);
+    --line: rgba(255, 255, 255, 0.09);
     --line-strong: rgba(255, 255, 255, 0.18);
     --text: #eef1f6;
-    --dim: #8b94a3;
+    --muted: #b3bccb;
+    --dim: #7f8999;
     --accent: #047cfc;
+    --accent-bright: #5aa9ff;
     --accent-soft: rgba(4, 124, 252, 0.14);
-    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    --accent-border: rgba(4, 124, 252, 0.36);
+    --other: #7aa2ff;
+    --good: #34d399;
+    --warn: #fbbf24;
+    --bad: #ff8f7a;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --display: "Inter Tight", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   }
+
   * { box-sizing: border-box; }
   html { background: var(--void); scroll-behavior: smooth; }
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-  body { background: transparent; }
   body {
     margin: 0;
+    background: transparent;
     color: var(--text);
-    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    font: 15.5px/1.6 var(--sans);
     -webkit-font-smoothing: antialiased;
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
   }
 
-  /* ---- backdrop: derived image, never competing with the type ---- */
+  /* ---- backdrop ---- */
   .backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
   .backdrop img, .backdrop video {
     position: absolute; inset: 0;
@@ -38,130 +57,302 @@
     z-index: 0;
   }
   .backdrop video { z-index: 1; }
-  /* reduced motion: the still carries the page, the loop never plays */
-  @media (prefers-reduced-motion: reduce) {
-    .backdrop video { display: none; }
-  }
+  @media (prefers-reduced-motion: reduce) { .backdrop video { display: none; } }
   .backdrop::after {
     content: ""; position: absolute; inset: 0; z-index: 2;
     background:
-      /* left scrim: the type column stays dark, the arc stays bright on the right */
-      linear-gradient(90deg, rgba(5,7,11,0.90) 0%, rgba(5,7,11,0.62) 34%, rgba(5,7,11,0.18) 66%, rgba(5,7,11,0) 100%),
-      linear-gradient(180deg, rgba(5,7,11,0.50) 0%, rgba(5,7,11,0.18) 30%, rgba(5,7,11,0.80) 80%, var(--void) 100%),
-      radial-gradient(130% 90% at 64% 42%, rgba(5,7,11,0) 0%, rgba(5,7,11,0.30) 62%, rgba(5,7,11,0.72) 100%);
+      linear-gradient(90deg, rgba(5,7,11,0.92) 0%, rgba(5,7,11,0.68) 38%, rgba(5,7,11,0.22) 68%, rgba(5,7,11,0.06) 100%),
+      linear-gradient(180deg, rgba(5,7,11,0.58) 0%, rgba(5,7,11,0.18) 28%, rgba(5,7,11,0.82) 82%, var(--void) 100%),
+      radial-gradient(130% 90% at 64% 42%, rgba(5,7,11,0) 0%, rgba(5,7,11,0.34) 62%, rgba(5,7,11,0.78) 100%);
   }
 
-  .shell { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 0 28px; }
-
-  /* ---- glass bar: blurred, translucent, floats over the page ---- */
-  .brand { transition: opacity 160ms ease; }
-  .brand:hover { opacity: 0.78; }
+  /* ---- redesigned glass header ---- */
+  .bar-wrap {
+    position: sticky; top: 14px; z-index: 30;
+    width: calc(100% - 32px); max-width: 1120px;
+    margin: 14px auto 0;
+  }
   .bar {
-    position: sticky; top: 12px; z-index: 10;
-    max-width: 1060px; margin: 12px auto 0;
-    width: calc(100% - 32px);
-    border-radius: 15px;
-    /* almost clear: you should see the page moving behind it, just blurred */
-    background: rgba(255, 255, 255, 0.035);
-    backdrop-filter: blur(34px) saturate(185%);
-    -webkit-backdrop-filter: blur(34px) saturate(185%);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    box-shadow: 0 18px 50px -40px rgba(0, 0, 0, 0.9);
+    position: relative;
+    border-radius: 14px;
+    /* barely there on purpose: it is glass, not a panel */
+    background: rgba(255, 255, 255, 0.022);
+    backdrop-filter: blur(36px) saturate(185%);
+    -webkit-backdrop-filter: blur(36px) saturate(185%);
+    border: 1px solid rgba(255, 255, 255, 0.055);
   }
   .bar-inner {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 16px; padding: 11px 16px 11px 14px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 14px;
+    padding: 9px 12px;
   }
-  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+  .brand-group {
+    display: flex; align-items: center; gap: 11px; min-width: 0;
+  }
+  .brand {
+    display: inline-flex; align-items: center; gap: 10px;
+    text-decoration: none; color: inherit;
+    transition: opacity 160ms ease;
+    flex-shrink: 0;
+  }
+  .brand:hover { opacity: 0.82; }
   .brand img {
-    width: 42px; height: 42px; border-radius: 11px; display: block; flex-shrink: 0;
+    width: 34px; height: 34px; border-radius: 9px;
+    display: block; flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.12);
   }
-  .brand span { font-size: 19px; }
-  .brand span { font-size: 15px; font-weight: 600; letter-spacing: -0.012em; }
-  .stack {
+  .brand-name {
+    font-size: 16px; font-weight: 650; letter-spacing: -0.02em; color: var(--text);
+  }
+  .brand-sep {
+    width: 1px; height: 14px; background: var(--line-strong); flex-shrink: 0;
+  }
+  .brand-tag {
     font: 10.5px/1 var(--mono); color: var(--dim);
-    letter-spacing: 0.13em; text-transform: uppercase;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
+  /* center segmented nav */
+  .nav-tabs {
+    display: inline-flex; align-items: center; gap: 26px;
+    padding: 0; border-radius: 0; background: none; border: 0;
+  }
+  .nav-tab {
+    appearance: none; border: 0; background: transparent;
+    color: var(--dim);
+    font: 500 13.5px/1 var(--sans);
+    padding: 5px 0;
+    border-radius: 0;
+    cursor: pointer;
+    position: relative;
+    transition: color 160ms ease;
+    white-space: nowrap;
+  }
+  .nav-tab:hover { color: var(--text); transform: none; filter: none; }
+  .nav-tab.active { color: var(--text); background: none; box-shadow: none; }
+  .nav-tab.active::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -3px;
+    height: 1.5px; background: var(--accent); border-radius: 2px;
+  }
+
+  /* right status pill */
+  .bar-right {
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+    min-width: 0;
+  }
+  .health-pill {
+    appearance: none;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 0; border-radius: 0;
+    background: none; border: 0;
+    color: var(--dim);
+    font: 11px/1 var(--mono);
+    cursor: pointer;
+    max-width: 100%;
+    transition: color 160ms ease;
+  }
+  .health-pill:hover { color: var(--text); transform: none; filter: none; }
+  /* status is carried by the label itself; no dot */
+  .health-dot { display: none; }
+  .health-label {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .health-transport {
+    color: var(--accent-bright);
+    padding-left: 6px;
+    border-left: 1px solid var(--line);
+  }
+
+  /* runtime popover */
+  .popover {
+    position: absolute; top: calc(100% + 10px); right: 0;
+    width: min(360px, calc(100vw - 32px));
+    padding: 16px;
+    border-radius: 14px;
+    background: rgba(9, 13, 21, 0.985);
+    backdrop-filter: blur(28px) saturate(160%);
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 28px 64px -24px rgba(0, 0, 0, 0.95);
+    display: none;
+    z-index: 40;
+  }
+  .popover.open { display: block; animation: rise 180ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .pop-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+    font: 600 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+  }
+  .pop-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 6px 0; font: 12px/1.4 var(--mono);
+  }
+  .pop-row span:first-child { color: var(--dim); }
+  .pop-row span:last-child { color: var(--text); text-align: right; word-break: break-all; }
+  .pop-hint {
+    margin-top: 10px; padding: 10px 11px; border-radius: 9px;
+    background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.25);
+    color: #fde68a; font: 11.5px/1.5 var(--mono);
+  }
+  .pop-hint.ok {
+    background: rgba(52, 211, 153, 0.08); border-color: rgba(52, 211, 153, 0.25); color: #a7f3d0;
+  }
+
+  /* ---- main shell ---- */
+  .shell {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 1120px;
+    margin: 0 auto; padding: 0 28px;
+    flex: 1;
+  }
+  .view { display: none; }
+  .view.active { display: block; }
+
   /* ---- hero ---- */
-  header.hero { padding: clamp(56px, 11vh, 118px) 0 clamp(34px, 5vh, 54px); }
+  header.hero { padding: clamp(38px, 7vh, 76px) 0 clamp(24px, 3.6vh, 38px); }
   .eyebrow {
     font: 10.5px/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase;
-    color: var(--accent); margin: 0 0 26px;
+    color: var(--accent-bright); margin: 0 0 18px;
     display: flex; align-items: center; gap: 10px;
   }
-  .eyebrow::before {
-    content: ""; width: 22px; height: 1px; background: currentColor; opacity: 0.7;
-  }
+  .eyebrow::before { content: ""; width: 22px; height: 1px; background: currentColor; opacity: 0.75; }
   h1 {
-    font-size: clamp(38px, 6.4vw, 74px);
+    font-family: var(--display);
+    font-size: clamp(36px, 5.6vw, 66px);
     font-weight: 300;
     letter-spacing: -0.035em;
-    line-height: 1.02;
-    margin: 0 0 22px;
-    max-width: 17ch;
+    line-height: 1.03;
+    margin: 0 0 16px;
+    max-width: 16ch;
   }
   h1 em { font-style: normal; color: #b7c1d0; }
   .sub {
-    color: #a7b0bf; margin: 0; max-width: 56ch;
-    font-size: clamp(15px, 1.4vw, 17.5px); line-height: 1.6;
+    color: #a9b2c1; margin: 0; max-width: 58ch;
+    font-size: clamp(14.5px, 1.3vw, 16.5px); line-height: 1.6;
   }
 
-  /* ---- the ask console ---- */
+  /* ---- ask console ---- */
   .console {
-    margin-top: clamp(34px, 5vh, 52px);
-    background: linear-gradient(180deg, rgba(14,18,26,0.86), rgba(8,11,17,0.92));
-    border: 1px solid var(--line);
+    background: rgba(9, 13, 20, 0.62);
+    border: 0;
     border-radius: 16px;
-    padding: 22px;
-    backdrop-filter: blur(14px) saturate(115%);
-    box-shadow: 0 30px 80px -40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.045);
+    padding: 20px 22px;
+    backdrop-filter: blur(20px) saturate(125%);
+    -webkit-backdrop-filter: blur(20px) saturate(125%);
+    box-shadow: none;
+    transition: border-color 200ms cubic-bezier(0.16, 1, 0.3, 1);
   }
+  .console:focus-within { border-color: rgba(4, 124, 252, 0.42); }
   .field + .field { margin-top: 16px; }
+  .field-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin-bottom: 8px; flex-wrap: wrap;
+  }
   label {
     display: block;
     font: 10px/1 var(--mono); color: var(--dim);
-    text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 9px;
+    text-transform: uppercase; letter-spacing: 0.14em; margin: 0;
   }
-  input, textarea {
+  .repo-row { display: flex; gap: 9px; align-items: stretch; }
+  /* fields are rules under type, not boxes */
+  input, textarea, select {
     width: 100%;
-    background: rgba(5,7,11,0.72);
+    background: transparent;
     color: var(--text);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 13px 15px;
-    font-family: inherit; font-size: 15.5px; resize: vertical; outline: none;
-    transition:
-      border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
-      background-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 0;
+    padding: 9px 0 11px;
+    font-family: inherit; font-size: 15px; outline: none;
+    transition: border-color 160ms ease;
   }
   input { font-family: var(--mono); font-size: 13px; letter-spacing: -0.01em; }
+  textarea { resize: vertical; line-height: 1.55; min-height: 82px; }
   input::placeholder, textarea::placeholder { color: #5c6572; }
-  /* border + fill only — a box-shadow ring repaints on every frame */
   input:focus, textarea:focus {
-    border-color: rgba(4,124,252,0.72);
-    background-color: rgba(8, 12, 20, 0.92);
+    border-bottom-color: rgba(4, 124, 252, 0.85);
+    background-color: transparent;
   }
-  .console { transition: border-color 200ms cubic-bezier(0.16, 1, 0.3, 1); }
-  .console:focus-within { border-color: rgba(4,124,252,0.34); }
-  .row { display: flex; gap: 10px; align-items: center; margin-top: 18px; flex-wrap: wrap; }
-  button {
-    background: var(--accent); color: #04070d;
+  select { padding-right: 18px; }
+
+  /* chips row */
+  .chips {
+    display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 9px;
+  }
+  .chip-btn {
+    appearance: none;
+    background: none; border: 0; border-radius: 0;
+    color: var(--dim);
+    padding: 2px 0;
+    font: 11.5px/1.2 var(--mono);
+    cursor: pointer;
+    transition: color 150ms ease;
+  }
+  .chip-btn:hover { color: var(--text); transform: none; filter: none; }
+  .chip-btn.active { color: var(--accent-bright); background: none; border: 0; }
+  .chip-btn + .chip-btn { padding-left: 14px; border-left: 1px solid rgba(255,255,255,0.07); }
+  .chips-label {
+    font: 10px/1 var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em;
+    margin-right: 2px;
+  }
+
+  /* action bar */
+  .row {
+    display: flex; gap: 10px; align-items: center; justify-content: space-between;
+    margin-top: 16px; flex-wrap: wrap;
+  }
+  .row-left, .row-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button.primary, button.ghost {
     border: 0; border-radius: 10px;
-    padding: 12px 22px; font-weight: 650; font-size: 14px; cursor: pointer;
+    padding: 11px 20px; font-weight: 650; font-size: 13.5px; cursor: pointer;
     letter-spacing: -0.005em;
-    transition:
-      transform 170ms cubic-bezier(0.16, 1, 0.3, 1),
-      filter 170ms cubic-bezier(0.16, 1, 0.3, 1);
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1), filter 160ms ease, border-color 160ms ease;
   }
-  button:hover:not(:disabled) { filter: brightness(1.09); transform: translateY(-1px); }
-  button:active:not(:disabled) { transform: translateY(0) scale(0.982); transition-duration: 90ms; }
-  button:focus-visible { outline: 2px solid rgba(4,124,252,0.85); outline-offset: 2px; }
-  button:disabled { opacity: 0.45; cursor: default; }
+  button.primary { background: var(--accent); color: #04070d; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+  button.primary:active:not(:disabled) { transform: translateY(0) scale(0.985); }
   button.ghost {
-    background: transparent; color: #b9c2cf;
-    border: 1px solid var(--line-strong); font-weight: 500;
+    background: none;
+    color: var(--muted);
+    border: 0;
+    border-radius: 0;
+    padding: 8px 0;
+    font-weight: 500;
+    white-space: nowrap;
   }
+  button.ghost:hover:not(:disabled) {
+    color: var(--text);
+    background: none;
+    transform: none;
+  }
+  button:focus-visible { outline: 2px solid rgba(4,124,252,0.85); outline-offset: 2px; }
+  button:disabled { opacity: 0.45; cursor: default; transform: none; }
+  .kbd {
+    font: 10.5px/1 var(--mono); padding: 2px 5px; border-radius: 4px;
+    background: rgba(4, 7, 13, 0.28); border: 1px solid rgba(4, 7, 13, 0.25);
+  }
+
+  .seg {
+    display: inline-flex; align-items: center; gap: 14px;
+    padding: 0; border-radius: 0; background: none; border: 0;
+  }
+  .seg button {
+    appearance: none; border: 0; background: transparent; color: var(--dim);
+    font: 11px/1 var(--mono); padding: 4px 0; border-radius: 0; cursor: pointer;
+    position: relative;
+    transition: color 150ms ease;
+  }
+  .seg button:hover { color: var(--text); transform: none; filter: none; }
+  .seg button.active { background: none; color: var(--text); }
+  .seg button.active::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -1px;
+    height: 1px; background: var(--accent);
+  }
+
   .meta { font: 11.5px/1.4 var(--mono); color: var(--dim); }
   .spin {
     display: inline-block; width: 7px; height: 7px; border-radius: 50%;
@@ -169,81 +360,218 @@
   }
   @keyframes p { 0%,100% { opacity: 0.2 } 50% { opacity: 1 } }
 
-  /* ---- motion: transform + opacity only, so the compositor carries it ---- */
-  @keyframes rise {
-    from { opacity: 0; transform: translate3d(0, 14px, 0); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  /* ---- answer + proof split ---- */
+  .answer { display: none; margin-top: 28px; }
+  .answer.on { display: block; animation: rise 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .answer-card {
+    background: rgba(9, 13, 20, 0.58);
+    border: 0;
+    border-radius: 16px;
+    padding: 22px;
+    backdrop-filter: blur(18px) saturate(120%);
   }
-  .bar-inner { animation: rise 520ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-  .hero > * { animation: rise 620ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-  .hero > *:nth-child(1) { animation-delay: 40ms; }
-  .hero > *:nth-child(2) { animation-delay: 110ms; }
-  .hero > *:nth-child(3) { animation-delay: 190ms; }
-  .console { animation: rise 620ms cubic-bezier(0.16, 1, 0.3, 1) 260ms both; }
-  .answer.on { animation: rise 300ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-
-  /* ---- answer ---- */
-  .answer { display: none; margin-top: 34px; }
-  .answer.on { display: block; }
   .stats {
-    display: flex; gap: 34px; align-items: baseline;
-    margin-bottom: 24px; flex-wrap: wrap;
-    padding-bottom: 20px; border-bottom: 1px solid var(--line);
+    display: flex; gap: 28px; align-items: baseline; flex-wrap: wrap;
+    margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--line);
   }
   .stat b {
-    display: block; font: 600 23px/1.15 var(--mono);
-    color: var(--accent); letter-spacing: -0.02em;
-    font-variant-numeric: tabular-nums; /* the live timer must not jitter */
+    display: block; font: 600 22px/1.15 var(--mono);
+    color: var(--accent-bright); letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
   }
   .stat span {
     font: 9.5px/1 var(--mono); color: var(--dim);
     text-transform: uppercase; letter-spacing: 0.13em;
   }
-  .body {
-    white-space: pre-wrap; font-size: 16px; line-height: 1.65;
-    color: #dfe5ee; max-width: 74ch;
-  }
-  /* citation highlight — the logo's blue, applied where it means something */
-  .body code, code {
-    font-family: var(--mono); font-size: 12.8px;
-    background: var(--accent-soft);
-    border: 1px solid rgba(4,124,252,0.30);
-    color: #86bdff;
-    padding: 1.5px 6px; border-radius: 5px;
-    white-space: nowrap;
-  }
-  .tools { margin-top: 26px; display: flex; gap: 7px; flex-wrap: wrap; }
-  .chip {
-    font: 10.5px/1 var(--mono); color: #9fa8b6;
-    border: 1px solid var(--line); border-radius: 999px; padding: 6px 11px;
-    background: rgba(255,255,255,0.02);
-    transition: color 160ms ease, border-color 160ms ease;
-  }
-  .chip:hover { color: #d6e6ff; border-color: rgba(4,124,252,0.45); }
-  .err { color: #ff9a86; font-family: var(--mono); font-size: 13px; white-space: pre-wrap; }
 
-  /* ---- the same glass, sitting at the foot ---- */
+  .answer-layout { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
+  .answer-layout.with-proof { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); }
+
+  .body { font-size: 15.5px; line-height: 1.68; color: #dfe5ee; min-width: 0; }
+  .body p { margin: 0 0 12px; }
+  .body p:last-child { margin-bottom: 0; }
+  .body h2, .body h3 {
+    margin: 18px 0 8px; font-weight: 600; letter-spacing: -0.015em; color: var(--text);
+  }
+  .body h2 { font-size: 18px; }
+  .body h3 { font-size: 15.5px; }
+  .body ul, .body ol { margin: 8px 0 12px; padding-left: 20px; }
+  .body li { margin: 4px 0; }
+  .body pre {
+    margin: 12px 0; padding: 13px 14px; border-radius: 10px;
+    background: rgba(4, 6, 10, 0.88); border: 1px solid var(--line);
+    overflow-x: auto; font: 12.5px/1.55 var(--mono); color: #d6e0ee;
+  }
+  .body code {
+    font-family: var(--mono); font-size: 12.6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #c8d9f0;
+    padding: 1.5px 6px; border-radius: 5px;
+  }
+  .body pre code { background: none; border: 0; padding: 0; color: inherit; font-size: inherit; }
+
+  .cite-pill {
+    appearance: none;
+    display: inline-flex; align-items: center; gap: 5px;
+    font: 12.2px/1.2 var(--mono);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+    color: #8cc2ff;
+    padding: 2px 7px; border-radius: 6px;
+    cursor: pointer; vertical-align: baseline;
+    transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+  }
+  .cite-pill:hover, .cite-pill.active {
+    background: rgba(4, 124, 252, 0.28);
+    border-color: var(--accent);
+    color: #ffffff;
+  }
+
+  /* source proof inspector */
+  .proof {
+    background: rgba(5, 7, 12, 0.92);
+    border: 0;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.022);
+    overflow: hidden;
+  }
+  .proof-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 13px;
+    background: rgba(4, 124, 252, 0.09);
+    border-bottom: 1px solid var(--line);
+    font: 11.5px/1.3 var(--mono); color: var(--text);
+  }
+  .proof-close {
+    appearance: none; border: 0; background: transparent; color: var(--dim);
+    cursor: pointer; font: 13px/1 var(--mono); padding: 3px 6px; border-radius: 5px;
+  }
+  .proof-close:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+  .proof-code {
+    overflow-x: auto; padding: 10px 0;
+    font: 12px/1.55 var(--mono);
+    max-height: 400px; overflow-y: auto;
+  }
+  .proof-line {
+    display: grid; grid-template-columns: 48px 1fr; gap: 10px;
+    padding: 1px 12px 1px 0;
+    white-space: pre;
+  }
+  .proof-line.hl {
+    background: rgba(4, 124, 252, 0.18);
+    border-left: 2px solid var(--accent);
+  }
+  .proof-ln {
+    text-align: right; color: #5d6777; user-select: none; padding-left: 8px;
+  }
+  .proof-line.hl .proof-ln { color: var(--accent-bright); font-weight: 600; }
+
+  .tools { margin-top: 20px; display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+  .chip {
+    font: 10.5px/1 var(--mono); color: #8d97a6;
+    border: 0; border-radius: 0; padding: 0; background: none;
+  }
+  .chip + .chip::before { content: "·"; margin-right: 7px; color: #414a58; }
+  .err { color: var(--bad); font-family: var(--mono); font-size: 13px; white-space: pre-wrap; }
+
+  .history-bar {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px;
+  }
+
+  /* ---- integrated speed race view ---- */
+  .race-head {
+    padding: clamp(32px, 5vh, 52px) 0 20px;
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+  }
+  .race-head h2 {
+    margin: 8px 0 0; font-size: clamp(26px, 3.6vw, 42px);
+    font-weight: 300; letter-spacing: -0.03em; line-height: 1.08;
+  }
+  .race-controls {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .race-controls input[type="number"] { width: 92px; padding: 9px 11px; }
+  .banner {
+    font: 12px/1.5 var(--mono); color: var(--dim);
+    background: none; border: 0;
+    border-radius: 0; padding: 0 0 14px; margin-bottom: 14px;
+  }
+  .banner b { color: var(--accent-bright); font-weight: 600; }
+  .race-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .pane {
+    background: rgba(9, 13, 20, 0.55);
+    border: 0; border-radius: 14px;
+    display: flex; flex-direction: column; overflow: hidden; min-height: 360px; max-height: 520px;
+  }
+  /* the model names carry the colour; the panels stay quiet */
+  .pane-head {
+    display: flex; align-items: baseline; gap: 10px; padding: 13px 16px;
+    border-bottom: 1px solid var(--line); flex-wrap: wrap;
+  }
+  .pane-name { font-weight: 650; font-size: 15px; }
+  .pane.c .pane-name { color: var(--accent-bright); }
+  .pane.o .pane-name { color: var(--other); }
+  .pane-model { font: 11px/1 var(--mono); color: var(--dim); }
+  .clock {
+    margin-left: auto; font: 600 22px/1 var(--mono); letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  .pane-stats { display: flex; gap: 20px; padding: 11px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .pane-stats .stat b { font-size: 16px; color: var(--text); }
+  .pane.c .pane-stats .stat b { color: var(--accent-bright); }
+  .out {
+    flex: 1; overflow-y: auto; padding: 14px 16px;
+    font: 12.5px/1.55 var(--mono); white-space: pre-wrap; color: #cfd6e0;
+  }
+  .stub { color: var(--dim); font-size: 13px; line-height: 1.7; }
+  .winner {
+    text-align: center; font: 600 14.5px/1.4 var(--mono);
+    padding: 16px 0 4px; color: var(--accent-bright);
+  }
+  .winner.muted { color: var(--dim); }
+
+  /* ---- footer ---- */
+  /* the footer is a line of text, not a card */
   .foot {
-    max-width: 1060px; margin: 72px auto 30px;
+    position: relative; z-index: 1;
+    max-width: 1120px; margin: 64px auto 30px;
     width: calc(100% - 32px);
-    border-radius: 15px;
-    background: rgba(255, 255, 255, 0.035);
-    backdrop-filter: blur(34px) saturate(185%);
-    -webkit-backdrop-filter: blur(34px) saturate(185%);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    box-shadow: 0 18px 50px -40px rgba(0, 0, 0, 0.9);
+    border-radius: 0; background: none;
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    border: 0; border-top: 1px solid rgba(255, 255, 255, 0.065);
+    box-shadow: none;
   }
   .foot-inner {
     display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-    padding: 16px 20px;
-    font: 10.5px/1.6 var(--mono); color: #6b7482; letter-spacing: 0.06em;
+    padding: 16px 0 0;
+    font: 10.5px/1.6 var(--mono); color: #6f7887; letter-spacing: 0.05em;
   }
-  @media (max-width: 640px) {
-    .shell { padding: 0 18px; }
-    .console { padding: 16px; border-radius: 14px; }
-    .stats { gap: 22px; }
-    .bar .stack { display: none; }
-    .bar { top: 8px; margin-top: 8px; }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translate3d(0, 12px, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+  .hero > * { animation: rise 560ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .hero > *:nth-child(2) { animation-delay: 70ms; }
+  .hero > *:nth-child(3) { animation-delay: 140ms; }
+  .console { animation: rise 560ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both; }
+
+  @media (max-width: 860px) {
+    .bar-inner { grid-template-columns: auto 1fr; }
+    .brand-sep, .brand-tag { display: none; }
+    .nav-tabs { grid-column: 1 / -1; justify-self: center; display: flex; gap: 30px; }
+    .nav-tab { justify-content: center; }
+    .bar-right { grid-column: 2; grid-row: 1; }
+    .answer-layout.with-proof { grid-template-columns: 1fr; }
+    .race-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .shell { padding: 0 16px; }
+    .bar-wrap, .foot { width: calc(100% - 20px); }
+    .console, .answer-card { padding: 15px; }
+    .repo-row { flex-direction: column; }
+    .health-transport { display: none; }
   }
   @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; transition: none !important; }
@@ -253,72 +581,345 @@
 <body>
 <div class="backdrop">
   <img src="/bg.webp?v=7" alt="" aria-hidden="true" decoding="async" fetchpriority="high" />
-  <video autoplay muted loop playsinline preload="auto"
-         poster="/bg.webp?v=7" aria-hidden="true" tabindex="-1">
+  <video autoplay muted loop playsinline preload="auto" poster="/bg.webp?v=7" aria-hidden="true" tabindex="-1">
     <source src="/bg-loop.mp4?v=1" type="video/mp4" />
   </video>
 </div>
 
-<header class="bar">
-  <div class="bar-inner">
-    <a class="brand" href="/"><img src="/icon.png" alt="" /><span>Sightread</span></a>
-    <span class="stack">Kimi K3.1 Pro · Cerebras · OpenClaw</span>
-  </div>
-</header>
+<div class="bar-wrap">
+  <header class="bar">
+    <div class="bar-inner">
+      <div class="brand-group">
+        <a class="brand" href="/">
+          <img src="/icon.png" alt="" />
+          <span class="brand-name">Sightread</span>
+        </a>
+        <span class="brand-sep" aria-hidden="true"></span>
+        <span class="brand-tag">Kimi K3.1 Pro · Cerebras</span>
+      </div>
 
-<div class="shell">
-  <header class="hero">
-    <p class="eyebrow">Reads the repository, not an index</p>
-    <h1>Ask a codebase<br /><em>anything.</em></h1>
-    <p class="sub">
-      Every answer cites the exact file and line it came from — because the model
-      reads the source itself instead of guessing from retrieved fragments.
-    </p>
+      <nav class="nav-tabs" aria-label="Workspace mode">
+        <button class="nav-tab active" data-view="ask" id="tab-ask">Ask Repo</button>
+        <button class="nav-tab" data-view="race" id="tab-race">Speed Race</button>
+      </nav>
+
+      <div class="bar-right">
+        <button class="health-pill" id="health-btn" type="button" aria-expanded="false" aria-controls="health-pop">
+          <span class="health-dot" id="h-dot"></span>
+          <span class="health-label" id="h-model">checking…</span>
+          <span class="health-transport" id="h-transport">–</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="popover" id="health-pop" role="region" aria-label="System runtime status">
+      <div class="pop-head">
+        <span>Runtime Preflight</span>
+        <span id="pop-status">checking</span>
+      </div>
+      <div class="pop-row"><span>OpenClaw CLI</span><span id="pop-oc">–</span></div>
+      <div class="pop-row"><span>Model</span><span id="pop-model">–</span></div>
+      <div class="pop-row"><span>Agent</span><span id="pop-agent">–</span></div>
+      <div class="pop-row"><span>Transport</span><span id="pop-transport">–</span></div>
+      <div class="pop-row"><span>Cerebras key</span><span id="pop-ckey">–</span></div>
+      <div class="pop-row"><span>OpenRouter key</span><span id="pop-okey">–</span></div>
+      <div class="pop-hint" id="pop-hint">Checking local OpenClaw gateway &amp; environment…</div>
+    </div>
   </header>
-
-  <section class="console">
-    <div class="field">
-      <label for="repo">repository</label>
-      <input id="repo" placeholder="https://github.com/owner/name   or   /path/to/local/repo" spellcheck="false" autocomplete="off" />
-    </div>
-    <div class="field">
-      <label for="q">question</label>
-      <textarea id="q" rows="3" placeholder="Where does auth expire, and what breaks if I change it?"></textarea>
-    </div>
-    <div class="row">
-      <button id="ask">Ask</button>
-      <button id="prep" class="ghost">Clone repo</button>
-      <span class="meta" id="status"></span>
-    </div>
-  </section>
-
-  <section class="answer" id="answer">
-    <div class="stats">
-      <div class="stat"><b id="s-time">–</b><span>wall clock</span></div>
-      <div class="stat"><b id="s-turns">–</b><span>agent turns</span></div>
-      <div class="stat"><b id="s-tools">–</b><span>tool calls</span></div>
-      <div class="stat"><b id="s-tps">–</b><span>tok/s</span></div>
-    </div>
-    <div class="body" id="s-body"></div>
-    <div class="tools" id="s-tools-list"></div>
-  </section>
-
 </div>
+
+<main class="shell">
+  <!-- ======== VIEW 1: ASK REPO ======== -->
+  <section class="view active" id="view-ask">
+    <header class="hero">
+      <h1>Ask a codebase<br /><em>anything.</em></h1>
+      <p class="sub">
+        Every answer cites the exact file and line it came from — driven by a scoped
+        OpenClaw agent reading source files directly on Cerebras instead of guessing from fragments.
+      </p>
+    </header>
+
+    <section class="console">
+      <div class="field">
+        <div class="field-head">
+          <label for="repo">repository</label>
+        </div>
+        <div class="repo-row">
+          <input id="repo" placeholder="https://github.com/owner/name   or   owner/name   or   /path/to/repo" spellcheck="false" autocomplete="off" />
+          <button id="prep" class="ghost" type="button">Clone repo</button>
+        </div>
+        <div class="chips" id="repo-chips"></div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="q">question</label>
+        </div>
+        <textarea id="q" rows="3" placeholder="Where does auth expire, and what breaks if I change it?"></textarea>
+        <div class="chips" id="prompt-chips">
+          <span class="chips-label">Try</span>
+          <button type="button" class="chip-btn" data-prompt="How does Sightread choose between OpenClaw gateway and exec transport, and where is the timeout configured?">Gateway vs exec transport</button>
+          <button type="button" class="chip-btn" data-prompt="Where are file:line citations parsed and highlighted in the UI, and what path traversal protections exist for reading files?">Citations &amp; file safety</button>
+          <button type="button" class="chip-btn" data-prompt="How does the Cerebras vs OpenRouter race measure first token latency and server-side tok/s?">Race measurement</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="row-left">
+          <button id="ask" class="primary" type="button">Ask <span class="kbd">⌘↵</span></button>
+          <div class="seg" role="group" aria-label="Thinking effort">
+            <button type="button" class="active" data-thinking="low">low</button>
+            <button type="button" data-thinking="medium">medium</button>
+            <button type="button" data-thinking="high">high</button>
+          </div>
+          <button id="session-toggle" class="chip-btn" type="button" style="display:none" title="Continue in the same OpenClaw session or start fresh">New turn</button>
+        </div>
+        <div class="row-right">
+          <span class="meta" id="status"></span>
+        </div>
+      </div>
+    </section>
+
+    <div class="history-bar" id="history-bar"></div>
+
+    <section class="answer" id="answer">
+      <div class="answer-card">
+        <div class="stats">
+          <div class="stat"><b id="s-time">–</b><span>wall clock</span></div>
+          <div class="stat"><b id="s-turns">–</b><span>agent turns</span></div>
+          <div class="stat"><b id="s-tools">–</b><span>tool calls</span></div>
+          <div class="stat"><b id="s-tps">–</b><span>tok/s</span></div>
+          <div class="stat"><b id="s-tokens">–</b><span>tokens</span></div>
+        </div>
+        <div class="answer-layout" id="answer-layout">
+          <div class="body" id="s-body"></div>
+          <aside class="proof" id="proof" style="display:none">
+            <div class="proof-head">
+              <span id="proof-title">source</span>
+              <button class="proof-close" id="proof-close" type="button" aria-label="Close source preview">✕</button>
+            </div>
+            <div class="proof-code" id="proof-code"></div>
+          </aside>
+        </div>
+        <div class="tools" id="s-tools-list"></div>
+      </div>
+    </section>
+  </section>
+
+  <!-- ======== VIEW 2: SPEED RACE ======== -->
+  <section class="view" id="view-race">
+    <div class="race-head">
+      <div>
+        <p class="eyebrow">Side-by-side streaming benchmark</p>
+        <h2>Same model. Same prompt. Two kinds of silicon.</h2>
+      </div>
+      <div class="race-controls">
+        <div class="seg" role="group" aria-label="Cerebras reasoning effort">
+          <button type="button" class="active" data-race-effort="low">effort: low</button>
+          <button type="button" data-race-effort="medium">med</button>
+          <button type="button" data-race-effort="high">high</button>
+        </div>
+        <input id="race-max" type="number" min="16" max="8000" value="600" title="max tokens" />
+        <button id="race-go" class="primary" type="button">Start Race</button>
+      </div>
+    </div>
+
+    <div class="banner" id="race-banner">checking providers…</div>
+
+    <div class="console" style="padding: 16px;">
+      <textarea id="race-prompt" rows="3" spellcheck="false">Write a Python module that parses a CSV file into typed records, with a validate() function and clear error messages. Output only code.</textarea>
+      <div class="chips" style="margin-top: 10px;">
+        <span class="chips-label">Presets</span>
+        <button type="button" class="chip-btn" data-race-preset="Write a Python module that parses a CSV file into typed records, with a validate() function and clear error messages. Output only code.">CSV Parser</button>
+        <button type="button" class="chip-btn" data-race-preset="Write a dependency-free TypeScript LRU cache with TTL expiration and O(1) get/set. Output only code.">LRU Cache (TS)</button>
+        <button type="button" class="chip-btn" data-race-preset="Write the integers from 1 to 1000, each on its own line, with no other text.">1..1000 TPS Test</button>
+      </div>
+    </div>
+
+    <div class="race-grid">
+      <section class="pane c">
+        <div class="pane-head">
+          <span class="pane-name">Cerebras</span>
+          <span class="pane-model" id="m-c">—</span>
+          <span class="clock" id="t-c">0.00s</span>
+        </div>
+        <div class="pane-stats">
+          <div class="stat"><b id="ttft-c">–</b><span>first token</span></div>
+          <div class="stat"><b id="tok-c">–</b><span>tokens</span></div>
+          <div class="stat"><b id="tps-c">–</b><span>tok/s</span></div>
+        </div>
+        <div class="out" id="out-c"><span class="stub">Press Start Race</span></div>
+      </section>
+
+      <section class="pane o">
+        <div class="pane-head">
+          <span class="pane-name">OpenRouter</span>
+          <span class="pane-model" id="m-o">—</span>
+          <span class="clock" id="t-o">0.00s</span>
+        </div>
+        <div class="pane-stats">
+          <div class="stat"><b id="ttft-o">–</b><span>first token</span></div>
+          <div class="stat"><b id="tok-o">–</b><span>tokens</span></div>
+          <div class="stat"><b id="tps-o">–</b><span>tok/s</span></div>
+        </div>
+        <div class="out" id="out-o"><span class="stub">Press Start Race</span></div>
+      </section>
+    </div>
+
+    <div class="winner" id="winner"></div>
+  </section>
+</main>
 
 <footer class="foot">
   <div class="foot-inner">
-    <span>MIT · built at the Cerebras × Kimi hackathon</span>
-    <span id="foot-note">answers are grounded, not generated from memory</span>
+    <span>MIT · Sightread · Cerebras × Kimi K3.1 Pro × OpenClaw</span>
+    <span>answers cite exact source lines — click any citation to inspect</span>
   </div>
 </footer>
 
 <script>
 const $ = (id) => document.getElementById(id);
-let currentRepo = "";
 
-const setStatus = (text, busy = false) => {
-  $("status").innerHTML = busy ? `<span class="spin"></span>${text}` : text;
-};
+let currentRepo = "";
+let thinkingEffort = "low";
+let lastSessionId = null;
+let useSessionFollowup = false;
+let historyItems = [];
+let activeProofBtn = null;
+
+// ---- view switching ----
+function setView(name, push = true) {
+  document.querySelectorAll(".nav-tab").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
+  document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + name));
+  if (push && location.pathname !== (name === "race" ? "/race" : "/")) {
+    history.replaceState(null, "", name === "race" ? "/race" : "/");
+  }
+  if (name === "race") loadRaceState();
+}
+
+document.querySelectorAll(".nav-tab").forEach((btn) => {
+  btn.addEventListener("click", () => setView(btn.dataset.view));
+});
+if (location.pathname === "/race") setView("race", false);
+
+// ---- health pill & popover ----
+async function loadHealth() {
+  const h = await fetch("/api/health").then((r) => r.json()).catch(() => null);
+  if (!h) {
+    $("h-model").textContent = "offline";
+    $("h-dot").className = "health-dot warn";
+    return;
+  }
+  const shortModel = (h.model || "").split("/").pop() || "unknown";
+  $("h-model").textContent = shortModel;
+  $("h-transport").textContent = h.effectiveTransport || h.transport || "exec";
+  const ready = Boolean(h.keyPresent) && h.openclaw !== "not found";
+  $("h-dot").className = "health-dot " + (ready ? "ok" : "warn");
+
+  $("pop-status").textContent = ready ? "ready" : "needs setup";
+  $("pop-oc").textContent = h.openclaw || "not found";
+  $("pop-model").textContent = h.model || "–";
+  $("pop-agent").textContent = h.agent || "sightread";
+  $("pop-transport").textContent = `${h.effectiveTransport}${h.gatewayUp ? " (gateway warm)" : " (gateway offline)"}`;
+  $("pop-ckey").textContent = h.keyPresent ? "configured" : "missing";
+  $("pop-okey").textContent = h.openrouterKeyPresent ? "configured" : "not set";
+
+  const hint = $("pop-hint");
+  if (!h.keyPresent) {
+    hint.className = "pop-hint";
+    hint.textContent = "Set CEREBRAS_API_KEY in .env or your shell, then restart the server.";
+  } else if (!h.gatewayUp) {
+    hint.className = "pop-hint";
+    hint.textContent = "Tip: run `openclaw gateway start` to cut ~2–3s of cold startup per question.";
+  } else {
+    hint.className = "pop-hint ok";
+    hint.textContent = "Warm OpenClaw gateway + Cerebras key ready.";
+  }
+}
+
+$("health-btn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const open = $("health-pop").classList.toggle("open");
+  $("health-btn").setAttribute("aria-expanded", String(open));
+  if (open) loadHealth();
+});
+document.addEventListener("click", (e) => {
+  if (!$("health-pop").contains(e.target) && !$("health-btn").contains(e.target)) {
+    $("health-pop").classList.remove("open");
+    $("health-btn").setAttribute("aria-expanded", "false");
+  }
+});
+
+// ---- repos list ----
+async function loadRepos() {
+  const data = await fetch("/api/repos").then((r) => r.json()).catch(() => null);
+  const host = $("repo-chips");
+  host.innerHTML = "";
+  if (!data || !Array.isArray(data.repos) || !data.repos.length) return;
+
+  const lbl = document.createElement("span");
+  lbl.className = "chips-label";
+  lbl.textContent = "Ready";
+  host.appendChild(lbl);
+
+  data.repos.forEach((r, idx) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chip-btn";
+    btn.textContent = r.name;
+    btn.addEventListener("click", () => {
+      currentRepo = r.path;
+      $("repo").value = r.path;
+      host.querySelectorAll(".chip-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      setStatus(`selected ${r.name}`);
+    });
+    if (idx === 0 && !$("repo").value.trim()) {
+      currentRepo = r.path;
+      $("repo").value = r.path;
+      btn.classList.add("active");
+    }
+    host.appendChild(btn);
+  });
+}
+
+$("repo").addEventListener("input", () => {
+  currentRepo = "";
+  $("repo-chips").querySelectorAll(".chip-btn").forEach((b) => b.classList.remove("active"));
+});
+
+// ---- prompt & thinking controls ----
+document.querySelectorAll("[data-prompt]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    $("q").value = btn.dataset.prompt;
+    $("q").focus();
+  });
+});
+
+document.querySelectorAll("[data-thinking]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    thinkingEffort = btn.dataset.thinking;
+    document.querySelectorAll("[data-thinking]").forEach((b) => b.classList.toggle("active", b === btn));
+  });
+});
+
+$("session-toggle").addEventListener("click", () => {
+  useSessionFollowup = !useSessionFollowup;
+  $("session-toggle").classList.toggle("active", useSessionFollowup);
+  $("session-toggle").textContent = useSessionFollowup ? "Follow-up: ON" : "New turn";
+});
+
+// ---- status & helpers ----
+function setStatus(text, busy = false) {
+  const el = $("status");
+  el.textContent = "";
+  if (busy) {
+    const sp = document.createElement("span");
+    sp.className = "spin";
+    el.appendChild(sp);
+  }
+  el.appendChild(document.createTextNode(text));
+}
 
 async function post(path, body) {
   const res = await fetch(path, {
@@ -330,41 +931,285 @@ async function post(path, body) {
   return { ok: res.ok, data };
 }
 
-// Render code spans and highlight file:line citations without trusting HTML.
-function render(text) {
-  const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-  return esc(text).replace(
-    /((?:[\w./-]+\/)*[\w.-]+\.(?:js|mjs|cjs|ts|tsx|jsx|py|go|rs|rb|java|kt|c|h|cc|cpp|md|json|toml|ya?ml)):(\d+)(?:-(\d+))?/g,
-    '<code>$1:$2$3</code>'
-  );
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
+const CITE_RE = /((?:[\w./-]+\/)*[\w.-]+\.(?:js|mjs|cjs|ts|tsx|jsx|py|go|rs|rb|java|kt|c|h|cc|cpp|md|json|json5|toml|ya?ml|sh|html|css)):(\d+)(?:-(\d+))?/g;
+
+function formatInline(rawText) {
+  // Split out inline `code` spans first so we only style non-code or file:line tokens cleanly
+  const parts = String(rawText).split(/(`[^`\n]+`)/g);
+  return parts
+    .map((part) => {
+      if (part.startsWith("`") && part.endsWith("`") && part.length >= 2) {
+        const inner = part.slice(1, -1);
+        if (CITE_RE.test(inner)) {
+          CITE_RE.lastIndex = 0;
+          return inner.replace(CITE_RE, (_, file, l1, l2) => {
+            const label = l2 ? `${file}:${l1}-${l2}` : `${file}:${l1}`;
+            return `<button type="button" class="cite-pill" data-file="${esc(file)}" data-line="${l1}" data-end="${l2 || ""}">${esc(label)}</button>`;
+          });
+        }
+        return `<code>${esc(inner)}</code>`;
+      }
+      let html = esc(part);
+      html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+      html = html.replace(CITE_RE, (_, file, l1, l2) => {
+        const label = l2 ? `${file}:${l1}-${l2}` : `${file}:${l1}`;
+        return `<button type="button" class="cite-pill" data-file="${esc(file)}" data-line="${l1}" data-end="${l2 || ""}">${esc(label)}</button>`;
+      });
+      return html;
+    })
+    .join("");
+}
+
+function renderMarkdown(text) {
+  const lines = String(text || "").replace(/\r\n/g, "\n").split("\n");
+  let out = [];
+  let inCode = false;
+  let codeLines = [];
+  let listType = null;
+  let para = [];
+
+  const flushPara = () => {
+    if (para.length) {
+      out.push(`<p>${para.map(formatInline).join("<br />")}</p>`);
+      para = [];
+    }
+  };
+  const flushList = () => {
+    if (listType) {
+      out.push(`</${listType}>`);
+      listType = null;
+    }
+  };
+
+  for (const line of lines) {
+    if (line.trim().startsWith("```")) {
+      flushPara();
+      flushList();
+      if (!inCode) {
+        inCode = true;
+        codeLines = [];
+      } else {
+        out.push(`<pre><code>${esc(codeLines.join("\n"))}</code></pre>`);
+        inCode = false;
+      }
+      continue;
+    }
+    if (inCode) {
+      codeLines.push(line);
+      continue;
+    }
+
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushPara();
+      flushList();
+      continue;
+    }
+
+    const hMatch = trimmed.match(/^(#{1,3})\s+(.+)$/);
+    if (hMatch) {
+      flushPara();
+      flushList();
+      const tag = hMatch[1].length <= 2 ? "h2" : "h3";
+      out.push(`<${tag}>${formatInline(hMatch[2])}</${tag}>`);
+      continue;
+    }
+
+    const ulMatch = trimmed.match(/^[-*]\s+(.+)$/);
+    if (ulMatch) {
+      flushPara();
+      if (listType !== "ul") {
+        flushList();
+        listType = "ul";
+        out.push("<ul>");
+      }
+      out.push(`<li>${formatInline(ulMatch[1])}</li>`);
+      continue;
+    }
+
+    const olMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+    if (olMatch) {
+      flushPara();
+      if (listType !== "ol") {
+        flushList();
+        listType = "ol";
+        out.push("<ol>");
+      }
+      out.push(`<li>${formatInline(olMatch[1])}</li>`);
+      continue;
+    }
+
+    flushList();
+    para.push(line);
+  }
+
+  if (inCode && codeLines.length) {
+    out.push(`<pre><code>${esc(codeLines.join("\n"))}</code></pre>`);
+  }
+  flushPara();
+  flushList();
+  return out.join("");
+}
+
+// ---- clickable citation proof drawer ----
+async function openCitation(btn) {
+  const repo = currentRepo || $("repo").value.trim();
+  const file = btn.dataset.file;
+  const line = btn.dataset.line;
+  const end = btn.dataset.end;
+
+  if (activeProofBtn) activeProofBtn.classList.remove("active");
+  activeProofBtn = btn;
+  btn.classList.add("active");
+
+  $("proof").style.display = "block";
+  $("answer-layout").classList.add("with-proof");
+  $("proof-title").textContent = end ? `${file}:${line}-${end}` : `${file}:${line}`;
+  $("proof-code").innerHTML = `<div style="padding:14px;color:var(--dim)">loading source…</div>`;
+
+  const qs = new URLSearchParams({ repo, path: file, line });
+  if (end) qs.set("end", end);
+  const res = await fetch(`/api/file?${qs.toString()}`);
+  const data = await res.json().catch(() => ({ error: "failed to load file" }));
+  if (!res.ok || data.error) {
+    $("proof-code").innerHTML = `<div style="padding:14px;color:var(--bad)">${esc(data.error || "unable to preview file")}</div>`;
+    return;
+  }
+
+  $("proof-title").textContent = `${data.path} (${data.focusStart}${data.focusEnd !== data.focusStart ? "-" + data.focusEnd : ""} of ${data.totalLines})`;
+  const container = $("proof-code");
+  container.innerHTML = "";
+  for (const l of data.lines) {
+    const row = document.createElement("div");
+    row.className = "proof-line" + (l.highlighted ? " hl" : "");
+    const ln = document.createElement("span");
+    ln.className = "proof-ln";
+    ln.textContent = String(l.number);
+    const code = document.createElement("span");
+    code.textContent = l.text;
+    row.appendChild(ln);
+    row.appendChild(code);
+    container.appendChild(row);
+  }
+}
+
+$("proof-close").addEventListener("click", () => {
+  $("proof").style.display = "none";
+  $("answer-layout").classList.remove("with-proof");
+  if (activeProofBtn) {
+    activeProofBtn.classList.remove("active");
+    activeProofBtn = null;
+  }
+});
+
+$("s-body").addEventListener("click", (e) => {
+  const pill = e.target.closest(".cite-pill");
+  if (pill) openCitation(pill);
+});
+
+// ---- clone & ask ----
 $("prep").addEventListener("click", async () => {
   const url = $("repo").value.trim();
-  if (!url) return setStatus("paste a repo URL first");
+  if (!url) return setStatus("paste a repo URL or owner/name first");
   setStatus("cloning…", true);
   $("prep").disabled = true;
   const { ok, data } = await post("/api/prepare", { url });
   $("prep").disabled = false;
   if (!ok) return setStatus(`clone failed: ${data.error || "unknown"}`);
   currentRepo = data.path;
+  $("repo").value = data.path;
   setStatus(data.cloned ? `cloned ${data.slug}` : `already cloned: ${data.slug}`);
+  loadRepos();
 });
+
+function paintResult(data) {
+  $("answer").classList.add("on");
+  $("proof").style.display = "none";
+  $("answer-layout").classList.remove("with-proof");
+
+  $("s-time").textContent = data.elapsedMs != null ? (data.elapsedMs / 1000).toFixed(2) + "s" : "–";
+  $("s-turns").textContent = data.assistantTurns ?? "–";
+  $("s-tools").textContent = data.toolSummary?.calls ?? "–";
+  if (data.usage?.output && data.elapsedMs) {
+    $("s-tps").textContent = Math.round(data.usage.output / (data.elapsedMs / 1000));
+  } else {
+    $("s-tps").textContent = "–";
+  }
+  if (data.usage) {
+    const inp = data.usage.input ?? 0;
+    const out = data.usage.output ?? 0;
+    $("s-tokens").textContent = `${inp.toLocaleString()}→${out.toLocaleString()}`;
+  } else {
+    $("s-tokens").textContent = "–";
+  }
+
+  $("s-tools-list").innerHTML = "";
+  (data.toolSummary?.tools || []).forEach((name) => {
+    const el = document.createElement("span");
+    el.className = "chip";
+    el.textContent = name;
+    $("s-tools-list").appendChild(el);
+  });
+  if (data.transport) {
+    const tEl = document.createElement("span");
+    tEl.className = "chip";
+    tEl.textContent = `via ${data.transport}`;
+    $("s-tools-list").appendChild(tEl);
+  }
+
+  if (data.error) {
+    const errDiv = document.createElement("div");
+    errDiv.className = "err";
+    errDiv.textContent = data.error + (data.hint ? `\n\n${data.hint}` : "");
+    $("s-body").innerHTML = "";
+    $("s-body").appendChild(errDiv);
+    setStatus("failed");
+  } else {
+    $("s-body").innerHTML = renderMarkdown(data.final || "(empty response)");
+    setStatus(`${data.model} · ${data.usage?.output ?? 0} tokens out`);
+  }
+}
+
+function renderHistory() {
+  const bar = $("history-bar");
+  bar.innerHTML = "";
+  if (historyItems.length < 2) return;
+  const lbl = document.createElement("span");
+  lbl.className = "chips-label";
+  lbl.textContent = "Recent";
+  bar.appendChild(lbl);
+  historyItems.forEach((item, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip-btn";
+    b.textContent = item.question.slice(0, 38) + (item.question.length > 38 ? "…" : "");
+    b.addEventListener("click", () => {
+      $("q").value = item.question;
+      paintResult(item.data);
+    });
+    bar.appendChild(b);
+  });
+}
 
 async function ask() {
   const question = $("q").value.trim();
   const repo = currentRepo || $("repo").value.trim();
   if (!question) return setStatus("ask something");
-  if (!repo) return setStatus("paste a repo URL or path first");
+  if (!repo) return setStatus("select a repository or paste a URL first");
 
   $("ask").disabled = true;
   $("answer").classList.add("on");
-  ["s-time", "s-turns", "s-tools", "s-tps"].forEach((id) => ($(id).textContent = "–"));
+  $("proof").style.display = "none";
+  $("answer-layout").classList.remove("with-proof");
+  ["s-time", "s-turns", "s-tools", "s-tps", "s-tokens"].forEach((id) => ($(id).textContent = "–"));
   $("s-body").innerHTML = "";
   $("s-tools-list").innerHTML = "";
-  setStatus("reading…", true);
+  setStatus("reading repository…", true);
 
-  // rAF instead of setInterval: the readout advances with the display, not in steps
   const t0 = performance.now();
   let raf = 0;
   const tick = () => {
@@ -373,29 +1218,25 @@ async function ask() {
   };
   tick();
 
-  const { data } = await post("/api/ask", { repo, question });
+  const { data } = await post("/api/ask", {
+    repo,
+    question,
+    thinking: thinkingEffort,
+    sessionId: useSessionFollowup ? lastSessionId : null,
+  });
   cancelAnimationFrame(raf);
   $("ask").disabled = false;
 
-  $("s-time").textContent = (data.elapsedMs / 1000).toFixed(2) + "s";
-  $("s-turns").textContent = data.assistantTurns ?? "–";
-  $("s-tools").textContent = data.toolSummary?.calls ?? "–";
-  if (data.usage && data.elapsedMs) {
-    $("s-tps").textContent = Math.round(data.usage.output / (data.elapsedMs / 1000));
+  if (data.sessionId) {
+    lastSessionId = data.sessionId;
+    $("session-toggle").style.display = "inline-flex";
   }
-  (data.toolSummary?.tools || []).forEach((name) => {
-    const el = document.createElement("span");
-    el.className = "chip";
-    el.textContent = name;
-    $("s-tools-list").appendChild(el);
-  });
 
-  if (data.error) {
-    $("s-body").innerHTML = `<span class="err">${render(data.error)}</span>`;
-    setStatus("failed");
-  } else {
-    $("s-body").innerHTML = render(data.final || "(empty response)");
-    setStatus(`${data.model} · ${data.usage?.output ?? 0} tokens out`);
+  paintResult(data);
+  if (!data.error) {
+    historyItems.unshift({ question, data });
+    historyItems = historyItems.slice(0, 5);
+    renderHistory();
   }
 }
 
@@ -403,6 +1244,178 @@ $("ask").addEventListener("click", ask);
 $("q").addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") ask();
 });
+
+// ---- integrated race ----
+const RACE_SIDES = { cerebras: "c", openrouter: "o" };
+const raceState = {};
+let raceRaf = null;
+let raceEffort = "low";
+
+document.querySelectorAll("[data-race-effort]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    raceEffort = btn.dataset.raceEffort;
+    document.querySelectorAll("[data-race-effort]").forEach((b) => b.classList.toggle("active", b === btn));
+  });
+});
+
+document.querySelectorAll("[data-race-preset]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    $("race-prompt").value = btn.dataset.racePreset;
+  });
+});
+
+function fmtSec(ms) { return (ms / 1000).toFixed(2) + "s"; }
+
+function paintRaceClocks() {
+  const now = performance.now();
+  for (const side of Object.keys(RACE_SIDES)) {
+    const s = raceState[side];
+    if (!s || !s.running) continue;
+    $("t-" + RACE_SIDES[side]).textContent = fmtSec(now - s.t0);
+  }
+  raceRaf = requestAnimationFrame(paintRaceClocks);
+}
+
+async function loadRaceState() {
+  const s = await fetch("/api/race/state").then((r) => r.json()).catch(() => null);
+  if (!s) return;
+  $("m-c").textContent = s.cerebras.model;
+  $("m-o").textContent = s.openrouter.model;
+  const b = $("race-banner");
+  b.textContent = "";
+  if (s.cerebras.ready && s.openrouter.ready) {
+    b.innerHTML = `Both providers live — <b>${esc(s.cerebras.model)}</b> vs <b>${esc(s.openrouter.model)}</b>`;
+  } else if (s.cerebras.ready && !s.openrouter.ready) {
+    b.innerHTML = `Cerebras live (<b>${esc(s.cerebras.model)}</b>) · OpenRouter not configured — add <code>OPENROUTER_API_KEY</code> to <code>.env</code> for a live opponent.`;
+  } else {
+    b.innerHTML = `Waiting on keys — set <code>CEREBRAS_API_KEY</code>${s.openrouter.ready ? "" : " and <code>OPENROUTER_API_KEY</code>"} in <code>.env</code>.`;
+  }
+}
+
+function resetRacePanes() {
+  for (const side of Object.keys(RACE_SIDES)) {
+    const k = RACE_SIDES[side];
+    $("out-" + k).textContent = "";
+    $("t-" + k).textContent = "0.00s";
+    $("ttft-" + k).textContent = "–";
+    $("tok-" + k).textContent = "–";
+    $("tps-" + k).textContent = "–";
+    raceState[side] = { t0: performance.now(), running: true };
+  }
+  $("winner").textContent = "";
+  $("winner").className = "winner";
+  cancelAnimationFrame(raceRaf);
+  raceRaf = requestAnimationFrame(paintRaceClocks);
+}
+
+function judgeRace() {
+  const c = raceState.cerebras?.done;
+  const o = raceState.openrouter?.done;
+  const w = $("winner");
+  if (!c || !o) {
+    if (c && !raceState.openrouter?.running && !o) {
+      w.className = "winner muted";
+      w.textContent = `Unopposed — Cerebras answered in ${fmtSec(c.totalMs)}${c.tps ? ` (${c.tps.toFixed(0)} tok/s)` : ""}`;
+    }
+    return;
+  }
+  const ratio = (o.totalMs / c.totalMs).toFixed(1);
+  w.className = "winner";
+  w.textContent = `Cerebras ${fmtSec(c.totalMs)} · OpenRouter ${fmtSec(o.totalMs)} · ${ratio}× faster`;
+}
+
+function handleRaceEvent(ev) {
+  const k = RACE_SIDES[ev.side];
+  if (!k) return;
+
+  if (ev.event === "delta") {
+    const el = $("out-" + k);
+    el.insertAdjacentText("beforeend", ev.text);
+    el.scrollTop = el.scrollHeight;
+    return;
+  }
+  if (ev.event === "skip") {
+    const stub = document.createElement("span");
+    stub.className = "stub";
+    stub.textContent = `NOT RACING\n${ev.reason}\n\nSet the key in .env then restart the server.`;
+    $("out-" + k).innerHTML = "";
+    $("out-" + k).appendChild(stub);
+    raceState[ev.side].running = false;
+    return;
+  }
+  if (ev.event === "error") {
+    const err = document.createElement("span");
+    err.className = "err";
+    err.textContent = ev.reason;
+    $("out-" + k).innerHTML = "";
+    $("out-" + k).appendChild(err);
+    raceState[ev.side].running = false;
+    return;
+  }
+  if (ev.event === "done") {
+    raceState[ev.side].running = false;
+    raceState[ev.side].done = ev;
+    $("t-" + k).textContent = fmtSec(ev.totalMs);
+    $("ttft-" + k).textContent = ev.firstTokenMs == null ? "–" : fmtSec(ev.firstTokenMs);
+    $("tok-" + k).textContent = ev.exact ? ev.tokens : "≈" + ev.chunks;
+    $("tps-" + k).textContent = ev.tps == null ? "–" : ev.tps.toFixed(0);
+    judgeRace();
+  }
+}
+
+$("race-go").addEventListener("click", async () => {
+  $("race-go").disabled = true;
+  resetRacePanes();
+
+  const res = await fetch("/api/race", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      prompt: $("race-prompt").value,
+      maxTokens: Number($("race-max").value),
+      reasoningEffort: raceEffort,
+    }),
+  });
+
+  if (!res.ok || !res.body) {
+    $("race-banner").textContent = "race failed: HTTP " + res.status;
+    $("race-go").disabled = false;
+    return;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, i).trim();
+      buf = buf.slice(i + 1);
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (!payload) continue;
+      let ev;
+      try { ev = JSON.parse(payload); } catch { continue; }
+      if (ev.event === "end") {
+        raceState.cerebras.running = false;
+        raceState.openrouter.running = false;
+      } else {
+        handleRaceEvent(ev);
+      }
+    }
+  }
+
+  cancelAnimationFrame(raceRaf);
+  judgeRace();
+  $("race-go").disabled = false;
+});
+
+loadHealth();
+loadRepos();
 </script>
 </body>
 </html>

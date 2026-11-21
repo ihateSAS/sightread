@@ -1,0 +1,14 @@
+{
+  "name": "sightread",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ask a codebase anything. Every answer cites the file and line it came from.",
+  "scripts": {
+    "start": "node app/server.mjs",
+    "start:gateway": "SIGHTREAD_TRANSPORT=gateway node app/server.mjs",
+    "race": "node race/server.mjs",
+    "check": "bash ./check-cerebras.sh",
+    "test": "node --test test/app.test.mjs"
+  }
+}

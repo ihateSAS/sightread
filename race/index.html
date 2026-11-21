@@ -3,48 +3,96 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Sightread — race</title>
+<meta name="theme-color" content="#05070b" />
+<link rel="icon" type="image/png" href="/icon.png" />
+<title>Sightread — Speed Race</title>
 <style>
   :root {
-    --bg: #08090b;
-    --panel: #0f1114;
-    --line: #1e2126;
-    --text: #e9ebee;
-    --dim: #7f868f;
+    --bg: #05070b;
+    --panel: rgba(12, 16, 24, 0.88);
+    --glass: rgba(12, 16, 25, 0.56);
+    --line: rgba(255, 255, 255, 0.09);
+    --line-strong: rgba(255, 255, 255, 0.18);
+    --text: #eef1f6;
+    --muted: #b3bccb;
+    --dim: #7f8999;
     --accent: #047cfc;
+    --accent-bright: #5aa9ff;
     --other: #7aa2ff;
-    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --bad: #ff8f7a;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0; background: var(--bg); color: var(--text); min-height: 100vh;
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    margin: 0;
+    background: radial-gradient(90% 60% at 70% 10%, rgba(4, 124, 252, 0.10), transparent 65%), var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font: 15px/1.55 var(--sans);
+    -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 1440px; margin: 0 auto; padding: 26px 26px 30px; display: flex; flex-direction: column; min-height: 100vh; }
-  header { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
-  h1 { font-size: 20px; margin: 0; font-weight: 600; letter-spacing: -0.01em; }
-  .kicker { font: 11px/1 var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; }
-  .controls { display: flex; gap: 8px; margin-left: auto; align-items: center; }
-  input[type=number] { width: 82px; }
+  .bar-wrap {
+    position: sticky; top: 14px; z-index: 20;
+    width: calc(100% - 32px); max-width: 1380px; margin: 14px auto 0;
+  }
+  .bar {
+    border-radius: 15px;
+    background: var(--glass);
+    backdrop-filter: blur(26px) saturate(180%);
+    -webkit-backdrop-filter: blur(26px) saturate(180%);
+    border: 1px solid var(--line);
+    box-shadow: 0 18px 50px -30px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    padding: 9px 14px;
+    display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  }
+  .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+  .brand img { width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); }
+  .brand span { font-size: 15.5px; font-weight: 650; letter-spacing: -0.02em; }
+  .bar-sub { font: 11px/1 var(--mono); color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .seg {
+    display: inline-flex; padding: 3px; border-radius: 9px;
+    background: rgba(5, 7, 11, 0.72); border: 1px solid var(--line);
+  }
+  .seg button {
+    appearance: none; border: 0; background: transparent; color: var(--dim);
+    font: 11px/1 var(--mono); padding: 6px 9px; border-radius: 6px; cursor: pointer;
+  }
+  .seg button.active { background: rgba(255,255,255,0.1); color: var(--text); }
+  input[type=number] { width: 84px; }
   input, textarea {
     background: var(--panel); border: 1px solid var(--line); color: var(--text);
-    border-radius: 8px; padding: 9px 11px; font: inherit; outline: none;
+    border-radius: 9px; padding: 9px 11px; font: inherit; outline: none;
   }
-  textarea { width: 100%; resize: none; font-family: var(--mono); font-size: 13px; line-height: 1.5; }
-  button {
-    background: var(--accent); color: #08090b; border: 0; border-radius: 8px;
-    padding: 10px 18px; font-weight: 650; font-size: 14px; cursor: pointer;
+  input:focus, textarea:focus { border-color: rgba(4, 124, 252, 0.7); }
+  textarea { width: 100%; resize: vertical; font-family: var(--mono); font-size: 13px; line-height: 1.5; }
+  button.primary {
+    background: var(--accent); color: #05070b; border: 0; border-radius: 9px;
+    padding: 9px 18px; font-weight: 650; font-size: 13.5px; cursor: pointer;
   }
-  button:disabled { opacity: 0.4; cursor: default; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.1); }
+  button.primary:disabled { opacity: 0.45; cursor: default; }
+
+  .wrap { max-width: 1380px; margin: 0 auto; padding: 20px 16px 32px; display: flex; flex-direction: column; }
+  h1 { font-size: clamp(22px, 3vw, 32px); font-weight: 300; letter-spacing: -0.025em; margin: 0 0 12px; }
   .banner {
-    font: 12px/1.4 var(--mono); color: var(--dim); border: 1px solid var(--line);
-    border-radius: 8px; padding: 9px 12px; margin-bottom: 14px;
+    font: 12px/1.45 var(--mono); color: var(--muted); border: 1px solid var(--line);
+    background: var(--panel); border-radius: 10px; padding: 10px 13px; margin-bottom: 12px;
   }
-  .banner b { color: var(--accent); font-weight: 600; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; flex: 1; }
+  .banner b { color: var(--accent-bright); font-weight: 600; }
+  .banner code { font-family: var(--mono); color: #cbd5e1; }
+  .presets { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 9px; align-items: center; }
+  .chip-btn {
+    appearance: none; background: rgba(255,255,255,0.035); border: 1px solid var(--line);
+    color: var(--muted); border-radius: 999px; padding: 5px 11px; font: 11px/1.2 var(--mono); cursor: pointer;
+  }
+  .chip-btn:hover { border-color: rgba(4,124,252,0.5); color: var(--text); }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
   .pane {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-    display: flex; flex-direction: column; overflow: hidden; min-height: 0;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 13px;
+    display: flex; flex-direction: column; overflow: hidden; min-height: 360px; max-height: 540px;
   }
   .pane.c { border-top: 2px solid var(--accent); }
   .pane.o { border-top: 2px solid var(--other); }
@@ -53,45 +101,52 @@
     border-bottom: 1px solid var(--line); flex-wrap: wrap;
   }
   .pane-name { font-weight: 650; font-size: 15px; }
-  .pane.c .pane-name { color: var(--accent); }
+  .pane.c .pane-name { color: var(--accent-bright); }
   .pane.o .pane-name { color: var(--other); }
   .pane-model { font: 11px/1 var(--mono); color: var(--dim); }
-  .clock { margin-left: auto; font: 600 22px/1 var(--mono); letter-spacing: -0.03em; }
+  .clock { margin-left: auto; font: 600 22px/1 var(--mono); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
   .stats { display: flex; gap: 18px; padding: 11px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-  .stat b { font: 600 16px/1.2 var(--mono); }
+  .stat b { font: 600 16px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
+  .pane.c .stat b { color: var(--accent-bright); }
   .stat span { font: 9px/1 var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-top: 3px; }
   .out {
-    flex: 1; overflow: hidden; padding: 14px 16px; font-family: var(--mono);
+    flex: 1; overflow-y: auto; padding: 14px 16px; font-family: var(--mono);
     font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; color: #cfd4da;
-    min-height: 0; position: relative;
-  }
-  .out.fade::after {
-    content: ""; position: absolute; inset: auto 0 0 0; height: 60px;
-    background: linear-gradient(transparent, var(--panel));
   }
   .stub { color: var(--dim); font-size: 13px; line-height: 1.7; }
-  .stub code { color: var(--other); font-family: var(--mono); font-size: 12px; }
-  .err { color: #ff8f7a; font-size: 12px; white-space: pre-wrap; }
-  .winner { text-align: center; font: 600 15px/1 var(--mono); padding: 14px 0 0; color: var(--accent); }
+  .err { color: var(--bad); font-size: 12px; white-space: pre-wrap; }
+  .winner { text-align: center; font: 600 15px/1.4 var(--mono); padding: 16px 0 0; color: var(--accent-bright); }
   .winner.muted { color: var(--dim); }
+  @media (max-width: 780px) { .grid { grid-template-columns: 1fr; } .bar-sub { display: none; } }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <span class="kicker">Sightread</span>
-    <h1>Same model. Same prompt. Two kinds of silicon.</h1>
+<div class="bar-wrap">
+  <header class="bar">
+    <a class="brand" href="/"><img src="/icon.png" alt="" /><span>Sightread</span></a>
+    <span class="bar-sub">Side-by-Side Silicon Race</span>
     <div class="controls">
+      <div class="seg" role="group" aria-label="Cerebras reasoning effort">
+        <button type="button" class="active" data-effort="low">low</button>
+        <button type="button" data-effort="medium">med</button>
+        <button type="button" data-effort="high">high</button>
+      </div>
       <input id="max" type="number" min="16" max="8000" value="600" title="max tokens" />
-      <button id="go">Race</button>
+      <button id="go" class="primary">Race</button>
     </div>
   </header>
+</div>
 
+<div class="wrap">
+  <h1>Same model. Same prompt. Two kinds of silicon.</h1>
   <div class="banner" id="banner">checking providers…</div>
 
   <textarea id="prompt" rows="3" spellcheck="false">Write a Python module that parses a CSV file into typed records, with a validate() function and clear error messages. Output only code.</textarea>
-
-  <div style="height: 14px"></div>
+  <div class="presets">
+    <button type="button" class="chip-btn" data-preset="Write a Python module that parses a CSV file into typed records, with a validate() function and clear error messages. Output only code.">CSV Parser</button>
+    <button type="button" class="chip-btn" data-preset="Write a dependency-free TypeScript LRU cache with TTL expiration and O(1) get/set. Output only code.">LRU Cache (TS)</button>
+    <button type="button" class="chip-btn" data-preset="Write the integers from 1 to 1000, each on its own line, with no other text.">1..1000 TPS Test</button>
+  </div>
 
   <div class="grid">
     <section class="pane c">
@@ -105,7 +160,7 @@
         <div class="stat"><b id="tok-c">–</b><span>tokens</span></div>
         <div class="stat"><b id="tps-c">–</b><span>tok/s</span></div>
       </div>
-      <div class="out fade" id="out-c"><span class="stub">press Race</span></div>
+      <div class="out" id="out-c"><span class="stub">press Race</span></div>
     </section>
 
     <section class="pane o">
@@ -119,7 +174,7 @@
         <div class="stat"><b id="tok-o">–</b><span>tokens</span></div>
         <div class="stat"><b id="tps-o">–</b><span>tok/s</span></div>
       </div>
-      <div class="out fade" id="out-o"><span class="stub">press Race</span></div>
+      <div class="out" id="out-o"><span class="stub">press Race</span></div>
     </section>
   </div>
 
@@ -129,8 +184,24 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const SIDES = { cerebras: "c", openrouter: "o" };
-const state = {};           // side -> {t0, running, textEl, ...}
+const state = {};
 let raf = null;
+let effort = "low";
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+document.querySelectorAll("[data-effort]").forEach((b) => {
+  b.addEventListener("click", () => {
+    effort = b.dataset.effort;
+    document.querySelectorAll("[data-effort]").forEach((x) => x.classList.toggle("active", x === b));
+  });
+});
+
+document.querySelectorAll("[data-preset]").forEach((b) => {
+  b.addEventListener("click", () => { $("prompt").value = b.dataset.preset; });
+});
 
 function fmt(ms) { return (ms / 1000).toFixed(2) + "s"; }
 
@@ -147,12 +218,12 @@ function paintClocks() {
 function resetPanes() {
   for (const side of Object.keys(SIDES)) {
     const k = SIDES[side];
-    $("out-" + k).innerHTML = "";
+    $("out-" + k).textContent = "";
     $("t-" + k).textContent = "0.00s";
     $("ttft-" + k).textContent = "–";
     $("tok-" + k).textContent = "–";
     $("tps-" + k).textContent = "–";
-    state[side] = { t0: performance.now(), running: true, tokens: null, chunks: 0 };
+    state[side] = { t0: performance.now(), running: true };
   }
   $("winner").textContent = "";
   $("winner").className = "winner";
@@ -167,9 +238,9 @@ async function loadState() {
   $("m-o").textContent = s.openrouter.model;
   const b = $("banner");
   if (s.cerebras.ready && s.openrouter.ready) {
-    b.innerHTML = `both providers live — <b>${s.cerebras.model}</b> vs <b>${s.openrouter.model}</b>`;
+    b.innerHTML = `both providers live — <b>${esc(s.cerebras.model)}</b> vs <b>${esc(s.openrouter.model)}</b>`;
   } else if (s.cerebras.ready && !s.openrouter.ready) {
-    b.innerHTML = `Cerebras live · OpenRouter <b>not configured</b> — right pane will show as a stub. Add <code>OPENROUTER_API_KEY</code> to record a real race.`;
+    b.innerHTML = `Cerebras live · OpenRouter <b>not configured</b> — right pane will show as a stub. Add <code>OPENROUTER_API_KEY</code> to <code>.env</code> to record a real race.`;
   } else {
     b.innerHTML = `waiting on keys — set <code>CEREBRAS_API_KEY</code>${s.openrouter.ready ? "" : " and <code>OPENROUTER_API_KEY</code>"}`;
   }
@@ -177,12 +248,17 @@ async function loadState() {
 
 function stub(side, reason) {
   const k = SIDES[side];
-  $("out-" + k).innerHTML = `<span class="stub">NOT RACING<br>${reason}<br><br>Set the key then restart <code>node race/server.mjs</code>.</span>`;
+  const el = document.createElement("span");
+  el.className = "stub";
+  el.textContent = `NOT RACING\n${reason}\n\nSet the key then restart node race/server.mjs.`;
+  $("out-" + k).innerHTML = "";
+  $("out-" + k).appendChild(el);
   state[side].running = false;
 }
 
 function handle(ev) {
   const k = SIDES[ev.side];
+  if (!k) return;
 
   if (ev.event === "delta") {
     const el = $("out-" + k);
@@ -192,7 +268,11 @@ function handle(ev) {
   }
   if (ev.event === "skip") { stub(ev.side, ev.reason); return; }
   if (ev.event === "error") {
-    $("out-" + k).innerHTML = `<span class="err">${ev.reason}</span>`;
+    const err = document.createElement("span");
+    err.className = "err";
+    err.textContent = ev.reason;
+    $("out-" + k).innerHTML = "";
+    $("out-" + k).appendChild(err);
     state[ev.side].running = false;
     return;
   }
@@ -208,11 +288,11 @@ function handle(ev) {
 }
 
 function judge() {
-  const c = state.cerebras.done;
-  const o = state.openrouter.done;
+  const c = state.cerebras?.done;
+  const o = state.openrouter?.done;
   const w = $("winner");
   if (!c || !o) {
-    if (c && !state.openrouter.running && !o) {
+    if (c && !state.openrouter?.running && !o) {
       w.className = "winner muted";
       w.textContent = `unopposed — Cerebras answered in ${fmt(c.totalMs)}`;
     }
@@ -230,7 +310,7 @@ $("go").addEventListener("click", async () => {
   const res = await fetch("/api/race", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ prompt: $("prompt").value, maxTokens: Number($("max").value) }),
+    body: JSON.stringify({ prompt: $("prompt").value, maxTokens: Number($("max").value), reasoningEffort: effort }),
   });
 
   if (!res.ok || !res.body) {

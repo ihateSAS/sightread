@@ -74,7 +74,8 @@ mkdir -p skills && cp -R openclaw/skills/repo-read skills/repo-read
 openclaw gateway restart
 
 ./check-cerebras.sh                        # key, model inventory, tok/s, one turn
-SIGHTREAD_TRANSPORT=gateway node app/server.mjs   # http://localhost:8787
+npm start                                  # http://localhost:8787 (auto-loads .env, Ask + Speed Race)
+npm test                                   # run server/repo/env unit tests
 ```
 
 The scoped agent reads skills from this repo's `skills/` directory, not the global
@@ -91,10 +92,13 @@ Environment:
 ## Layout
 
 ```
-app/server.mjs                  HTTP server, no dependencies
-app/public/index.html           the page
+app/server.mjs                  HTTP server, no dependencies (Ask + Race + /api/file)
+app/lib/                        .env loader, safe repo/citation reader, SSE race runner
+app/public/index.html           Ask Repo + Speed Race UI with clickable citations
+race/server.mjs                 standalone side-by-side race server (:8788)
 openclaw/kimi-cerebras.patch.json5   provider + model config
 openclaw/skills/                repo-read, kimi-speed-lab
+test/app.test.mjs               node --test suite
 check-cerebras.sh               pre-flight
 PLAN.md                         the 24h plan and scoring strategy
 SUBMISSION.md                   the Discord/Reddit/X submission copy
