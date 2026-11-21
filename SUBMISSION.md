@@ -21,13 +21,15 @@ Ask Sightread about a change to a repository and it answers twice: once with the
 parsed import graph in the prompt, and once with the same model and no graph at
 all. Point it at Express, ask about lib/application.js, and the graph lists 100
 downstream files starting at lib/express.js line 18, while the same model with no
-graph has to work that list out itself and named 13 of the 100 on its own against
-21 with the graph. The pair is the product: computed evidence with clickable file
-and line citations, the model's answer without that evidence, and a count of how
-much of the graph the unaided run named. Speed is load-bearing because every
-change question is answered twice, and the graph pays for itself: on Kimi K3.1 Pro
-over Cerebras the graph-backed answer finished in 7.1s writing 422 tokens, while
-the same model unaided took 11.0s writing 1,605 to reach less of the list.
+graph has to work that list out itself. On Kimi K3.1 Pro the unaided run named 13
+of those 100; with the graph it named 21. The pair is the product: computed
+evidence with clickable file and line citations, the model's answer without that
+evidence, and a count of how much of the graph the unaided run named. Speed is
+load-bearing because every change question is answered twice, and the graph pays
+for itself: the aided answer finishes sooner than the unaided one while sending
+more prompt, because rebuilding a hundred-file list from memory costs about four
+times the output tokens. Every answer streams from Cerebras and the page reports
+its own first-token time.
 
 GitHub Repository: https://github.com/ihateSAS/sightread
 Demo Video: <attach the 60s MP4>
@@ -70,6 +72,20 @@ near 300 tok/s under the event load, against 1,746 tok/s for `gpt-oss-120b` on t
 same box. **Check the queue before recording** (step 1 of the pre-flight) and let
 the recorder quote the numbers on screen rather than these. Quote a total only
 when the run was quiet.
+
+**Both parties can be reached, and the two sets are not interchangeable.** Kimi's
+trial bucket spent long stretches answering `429 high traffic` with no queue at
+all, so the app's first-token budget hands those turns to the qwen fallback inside
+about 2.5s. That is the designed behaviour and the page says so in the answer.
+Whichever chip is in the finished take, quote that run:
+
+| Take | Aided | Unaided | Coverage |
+|---|---|---|---|
+| Kimi chip | 7.12s, 422 out | 11.05s, 1,605 out | 21 vs 13 of 100 |
+| Qwen fallback chip | 0.47s, 358 out | 1.39s, 1,158 out | 21 vs 3 of 100 |
+
+The fallback take is faster and its blind spot is wider, because a weaker model
+guesses worse. Do not mix a Kimi sentence with a Qwen frame.
 
 **Model id.** The organizers announce the id as
 `moonshotai-kimi-k3.1-pro-trial`. Our org's catalog briefly listed
@@ -237,8 +253,10 @@ then resolves a change to lib/application.js into 100 downstream files. One dire
 hit at lib/express.js line 18, ninety nine indirect, three levels deep into the
 examples. That list is computed from the import graph, not written by the model.
 Then it runs the same question again with no graph in the prompt and counts how
-many of those hundred files the model names on its own. Kimi named 13. With the
-graph it named 21, and every edge was a parsed import you can open. Graph tools
+many of those hundred files the model names on its own. Kimi named 13 of them; in a
+congested minute the app hands the turn to its qwen fallback instead and that run
+named 3. With the graph, 21 either way, and every edge was a parsed import you can
+open. Graph tools
 that do blast radius already exist; what I had not seen was the model's own
 answer next to that evidence, with the gap counted. That comparison is the point
 of the project.
