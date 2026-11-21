@@ -4,6 +4,17 @@
 **Prize pool:** $5000 — 3 × $1000 (top organic impressions on X) · 1 × $1000 (top upvotes on r/cerebras) · $1000 (fastest TPS prompt)
 **Non-negotiable requirement:** you must use the **OpenClaw harness**, with **Kimi K3.1 Pro on Cerebras** as a central component. Not "we used an OpenAI-compatible endpoint" — the OpenClaw agent loop has to be in the product.
 
+### What the official rules doc says, verbatim
+
+From the hackathon document (shorturl.at/csaGl):
+
+- **"Do I have to use OpenClaw harness for my project? Yes, you need to use OpenClaw harness within your project."** The test is that OpenClaw is *within* the project, not that every screen routes through it.
+- **"Pre-existing scaffolding, boilerplate code, and development frameworks are permitted. However, the core project and its functionality should be developed during the hackathon and must leverage Kimi K3.1 Pro running on Cerebras as a central component of the solution."**
+- Demo video: max 60s, must show Cerebras speed, and a side-by-side against a GPU provider is *recommended*, not required.
+- Elevated capacity is **100 RPM / 100K TPM**, not the public 30 RPM / 1M-per-day.
+- The doc's model-ID answer is **blank** — the exact ID is confirmed at kickoff, so never hardcode a guess without checking `/v1/models`.
+- Prizes are audience choice on X and Reddit plus a fastest-TPS bounty. There is no technical judging, so the video is the deliverable.
+
 ---
 
 ## 1. Read the scoring before you read the idea list
