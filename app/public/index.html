@@ -33,7 +33,7 @@
   .backdrop img {
     position: absolute; inset: 0;
     width: 100%; height: 100%;
-    object-fit: cover; object-position: 58% 38%;
+    object-fit: cover; object-position: 58% 40%;
   }
   .backdrop::after {
     content: ""; position: absolute; inset: 0;
@@ -50,7 +50,11 @@
     padding: 26px 0 0;
   }
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
-  .brand img { width: 26px; height: 26px; border-radius: 7px; display: block; }
+  .brand img {
+    width: 30px; height: 30px; border-radius: 8px; display: block;
+    /* the mark is black-on-black without a hairline and a little brand light */
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.16), 0 0 20px -2px rgba(4,124,252,0.55);
+  }
   .brand span { font-size: 15px; font-weight: 600; letter-spacing: -0.012em; }
   .stack {
     font: 10.5px/1 var(--mono); color: var(--dim);
@@ -191,15 +195,12 @@
 </head>
 <body>
 <div class="backdrop">
-  <img src="/bg.webp?v=4"
-       srcset="/bg.webp?v=4 1920w, /bg@2x.webp?v=4 3840w"
-       sizes="100vw"
-       alt="" aria-hidden="true" decoding="async" fetchpriority="high" />
+  <img src="/bg.svg?v=5" alt="" aria-hidden="true" decoding="async" fetchpriority="high" />
 </div>
 
 <div class="shell">
   <nav>
-    <a class="brand" href="/"><span>Sightread</span></a>
+    <a class="brand" href="/"><img src="/icon.png" alt="" /><span>Sightread</span></a>
     <span class="stack">Kimi K3.1 Pro · Cerebras · OpenClaw</span>
   </nav>
 
