@@ -909,6 +909,8 @@ document.addEventListener("click", (e) => {
 });
 
 // ---- change impact ----
+let selectedImpactPath = null;
+
 function renderHot(hot) {
   const host = $("impact-hot");
   host.innerHTML = "";
@@ -922,7 +924,31 @@ function renderHot(hot) {
   });
 }
 
+function renderImpactBody(data) {
+  const out = $("impact-result");
+  if (!data || !data.target) { out.innerHTML = ""; return; }
+
+  const indirect = (data.transitive || []).filter((t) => t.depth > 1);
+  const rows = [
+    ...(data.direct || []).map(
+      (d) => `<div class="impact-row direct"><span class="impact-path">${esc(d.path)}</span><span class="depth">imports it${d.line ? ` · line ${d.line}` : ""}</span></div>`
+    ),
+    ...indirect.map(
+      (t) => `<div class="impact-row transitive"><span class="impact-path">${esc(t.path)}</span><span class="depth">depth ${t.depth}</span></div>`
+    ),
+  ].slice(0, 14);
+
+  const total = (data.direct || []).length + indirect.length;
+  const more = total - rows.length;
+  out.innerHTML =
+    `<p class="impact-summary"><b>${esc(data.target.name)}</b> · ${data.risk.level} risk · ` +
+    `${(data.direct || []).length} direct, ${indirect.length} indirect` +
+    (more > 0 ? ` · showing 14 of ${total}` : "") +
+    `</p>` + rows.join("");
+}
+
 async function loadImpact(targetPath) {
+  selectedImpactPath = targetPath || null;
   const params = new URLSearchParams();
   if (currentRepo) params.set("repo", currentRepo);
   if (targetPath) params.set("path", targetPath);
@@ -934,23 +960,7 @@ async function loadImpact(targetPath) {
 
   renderHot(data.hot);
   if (!targetPath) { out.innerHTML = ""; return; }
-
-  const indirect = data.transitive.filter((t) => t.depth > 1);
-  const rows = [
-    ...data.direct.map(
-      (d) => `<div class="impact-row direct"><span class="impact-path">${esc(d.path)}</span><span class="depth">imports it${d.line ? ` · line ${d.line}` : ""}</span></div>`
-    ),
-    ...indirect.map(
-      (t) => `<div class="impact-row transitive"><span class="impact-path">${esc(t.path)}</span><span class="depth">depth ${t.depth}</span></div>`
-    ),
-  ].slice(0, 14);
-
-  const more = data.direct.length + indirect.length - rows.length;
-  out.innerHTML =
-    `<p class="impact-summary"><b>${esc(data.target.name)}</b> · ${data.risk.level} risk · ` +
-    `${data.direct.length} direct, ${indirect.length} indirect` +
-    (more > 0 ? ` — showing 14 of ${data.direct.length + indirect.length}` : "") +
-    `</p>` + rows.join("");
+  renderImpactBody(data);
 }
 
 // ---- repos list ----
@@ -1325,6 +1335,7 @@ async function ask() {
     question,
     thinking: thinkingEffort,
     sessionId: useSessionFollowup ? lastSessionId : null,
+    impactPath: selectedImpactPath,
   });
   cancelAnimationFrame(raf);
   $("ask").disabled = false;
@@ -1335,6 +1346,10 @@ async function ask() {
   }
 
   paintResult(data);
+  // The answer and the graph are the same claim, so they share one surface:
+  // when the question was about a change, show the computed edges next to it.
+  if (data.impact?.mode === "impact") renderImpactBody(data.impact);
+  else if (data.impact?.mode === "hubs") renderHot(data.impact.hot);
   if (!data.error) {
     historyItems.unshift({ question, data });
     historyItems = historyItems.slice(0, 5);

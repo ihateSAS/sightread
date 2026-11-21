@@ -34,6 +34,62 @@ const TYPES = {
 const ALLOWED_THINKING = new Set(["low", "medium", "high"]);
 const graphCache = new Map();
 
+// A question only earns a graph lookup when it is about change. Asking how
+// something works stays a plain read; asking what a change breaks gets evidence.
+const CHANGE_INTENT =
+  /\b(break|breaks|breaking|broke|impact|dependents?|depends on|who (?:uses|calls|imports)|affect|affects|safe to (?:change|edit|delete|remove)|refactor|downstream|callers?|ripple|load[- ]bearing|most imported)\b/i;
+const FILE_MENTION =
+  /(?:^|[\s`"'(])([\w.@/-]+\.(?:mjs|cjs|js|jsx|ts|tsx|py|go|rs|rb|java|kt|cs|php|swift|exs?|h|c|cc|cpp))(?=$|[\s`"'),:;?])/;
+
+async function graphFor(repoPath) {
+  const cached = graphCache.get(repoPath);
+  if (cached && Date.now() - cached.at < 30000) return cached.graph;
+  const graph = await buildImportGraph(repoPath);
+  graphCache.set(repoPath, { graph, at: Date.now() });
+  return graph;
+}
+
+const cleanPath = (p) =>
+  String(p).trim().replace(/^[`"'(]+/, "").replace(/[`"'),:;?]+$/, "").replace(/^\.\//, "").replace(/^\/+/, "");
+
+/**
+ * Turns a question into evidence the model cannot make up: parsed dependents.
+ * Returns null when the question is not about change, so normal reads stay cheap.
+ */
+export async function impactEvidence(repoPath, question, explicitPath) {
+  if (!CHANGE_INTENT.test(question) && !explicitPath) return null;
+
+  const graph = await graphFor(repoPath);
+  const mentioned = (question.match(FILE_MENTION) || [])[1];
+  const candidate = cleanPath(explicitPath || mentioned || "");
+  const hubs = () => ({ mode: "hubs", hot: hottestFiles(graph, 8) });
+
+  if (!candidate) return hubs();
+  const abs = resolve(repoPath, candidate);
+  if (!graph.files.includes(abs)) return hubs();
+  return { mode: "impact", ...impactOf(graph, candidate) };
+}
+
+function impactPrompt(evidence) {
+  if (evidence.mode === "hubs") {
+    return [
+      "Computed from real import statements, not from a model. Files with the most dependents here are:",
+      ...evidence.hot.map((h) => `- ${h.path} (${h.dependents} importers)`),
+      "Use this only if it answers the question. Do not add edges that are not listed.",
+    ].join("\n");
+  }
+  const indirect = evidence.transitive.filter((t) => t.depth > 1);
+  return [
+    `Computed from real import statements. Changing ${evidence.target.path} affects:`,
+    ...evidence.direct.map((d) => `- ${d.path}${d.line ? ` line ${d.line}` : ""} (direct importer)`),
+    ...indirect.slice(0, 20).map((t) => `- ${t.path} (depth ${t.depth})`),
+    evidence.direct.length === 0
+      ? "Nothing here imports it, so nothing breaks from this change."
+      : `Risk: ${evidence.risk.level}, ${evidence.direct.length} direct and ${indirect.length} indirect.`,
+    "This graph is parsed, so do not invent or drop edges. Explain what breaks and cite file:line where the import sits. If the list is empty, say so plainly.",
+  ].join("\n");
+}
+
 function getConfig() {
   const n = Number(process.env.PORT);
   return {
@@ -122,12 +178,15 @@ function extractTraceTools(trace) {
   return { calls: trace.length, tools: names };
 }
 
-async function askViaExec(cfg, repoPath, question, thinking) {
+async function askViaExec(cfg, repoPath, question, thinking, evidence) {
   const started = performance.now();
+  const prompt = evidence
+    ? `${question}\n\n<computed_impact>\n${impactPrompt(evidence)}\n</computed_impact>`
+    : question;
   const r = await runCommand(
     cfg.agentBinary,
     [
-      "agent", "exec", question,
+      "agent", "exec", prompt,
       "--cwd", repoPath,
       "--model", cfg.model,
       "--thinking", thinking,
@@ -164,9 +223,11 @@ async function askViaExec(cfg, repoPath, question, thinking) {
 
 // Warm path: talk to an already-running gateway instead of paying process
 // start-up on every question. Measured ~2-3s faster per turn.
-async function askViaGateway(cfg, repoPath, question, thinking, sessionId) {
+async function askViaGateway(cfg, repoPath, question, thinking, sessionId, evidence) {
   const started = performance.now();
-  const prompt = `Repository: ${repoPath}\n\n${question}`;
+  const prompt = evidence
+    ? `Repository: ${repoPath}\n\n${question}\n\n<computed_impact>\n${impactPrompt(evidence)}\n</computed_impact>`
+    : `Repository: ${repoPath}\n\n${question}`;
   const args = [
     "agent", "-m", prompt,
     "--agent", cfg.agent,
@@ -299,7 +360,7 @@ export function createAppServer({ projectRoot = PROJECT_ROOT, reposDir = REPOS, 
       }
 
       if (req.method === "POST" && url.pathname === "/api/ask") {
-        const { repo, question, thinking: rawThinking, sessionId } = await readBody(req);
+        const { repo, question, thinking: rawThinking, sessionId, impactPath } = await readBody(req);
         if (!question || !String(question).trim()) {
           return json(res, 400, { error: "question is required" });
         }
@@ -312,10 +373,22 @@ export function createAppServer({ projectRoot = PROJECT_ROOT, reposDir = REPOS, 
           cfg.transport === "gateway" ||
           (cfg.transport === "auto" && (await isGatewayReachable(cfg.gatewayPort)));
 
-        const result = useGateway
-          ? await askViaGateway(cfg, target, String(question).trim(), thinking, sessionId)
-          : await askViaExec(cfg, target, String(question).trim(), thinking);
+        // Evidence first, and only for change questions. Parsing is cached, so
+        // this costs well under a millisecond on a warmed repo.
+        const impactStart = performance.now();
+        const evidence = await impactEvidence(
+          target,
+          String(question).trim(),
+          impactPath ? String(impactPath) : null
+        ).catch(() => null);
+        const impactMs = evidence ? Math.round(performance.now() - impactStart) : null;
 
+        const result = useGateway
+          ? await askViaGateway(cfg, target, String(question).trim(), thinking, sessionId, evidence)
+          : await askViaExec(cfg, target, String(question).trim(), thinking, evidence);
+
+        result.impact = evidence;
+        result.impactMs = impactMs;
         return json(res, result.ok ? 200 : 502, result);
       }
 
@@ -327,14 +400,7 @@ export function createAppServer({ projectRoot = PROJECT_ROOT, reposDir = REPOS, 
         const isDir = await stat(repo).then((s) => s.isDirectory()).catch(() => false);
         if (!isDir) return json(res, 400, { error: `not a directory: ${repo}` });
 
-        const cached = graphCache.get(repo);
-        const graph =
-          cached && Date.now() - cached.at < 30000
-            ? cached.graph
-            : await buildImportGraph(repo).then((g) => {
-                graphCache.set(repo, { graph: g, at: Date.now() });
-                return g;
-              });
+        const graph = await graphFor(repo);
 
         if (!target) {
           return json(res, 200, {

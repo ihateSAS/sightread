@@ -35,6 +35,12 @@ The model's job is to explain the list, not to produce it.
 That is the claim worth checking in a demo: every arrow on screen is a line you
 can open.
 
+The ask flow uses the same evidence. A question that mentions a change (`break`,
+`depend`, `refactor`, `affect`) triggers a graph lookup, the parsed dependent
+list is injected into the agent prompt inside a `<computed_impact>` block, and the
+identical list renders beside the answer. A question about behaviour does no
+graph work at all, so ordinary reads stay as fast as they were.
+
 ## How OpenClaw is load-bearing
 
 This is not a chat wrapper around a completion endpoint. Every question is a real

@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildImportGraph, hottestFiles, impactOf } from "../app/lib/impact.mjs";
+import { impactEvidence } from "../app/server.mjs";
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "sightread-impact-"));
@@ -48,6 +49,34 @@ test("a leaf with no dependents reports an empty, low-risk impact", async () => 
     assert.equal(impact.direct.length, 0);
     assert.equal(impact.transitive.length, 0);
     assert.equal(impact.risk.level, "low");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a change question resolves to the file it names", async () => {
+  const root = fixture();
+  try {
+    const ev = await impactEvidence(root, "what breaks if I change lib/b.js?", null);
+    assert.equal(ev.mode, "impact");
+    assert.equal(ev.target.path, "lib/b.js");
+    assert.deepEqual(ev.direct.map((d) => d.path).sort(), ["d.js", "lib/a.js"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("only change questions get a graph lookup", async () => {
+  const root = fixture();
+  try {
+    assert.equal(await impactEvidence(root, "how does the parser work?", null), null);
+
+    const hubs = await impactEvidence(root, "which files are load-bearing?", null);
+    assert.equal(hubs.mode, "hubs", "a change question with no file gets the hub ranking");
+    assert.ok(hubs.hot.length > 0);
+
+    const missing = await impactEvidence(root, "what breaks if I delete nope.js", null);
+    assert.equal(missing.mode, "hubs", "an unknown path is not reported as zero impact");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
