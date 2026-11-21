@@ -379,6 +379,7 @@
     position: relative;
     transition: color 150ms ease;
   }
+  .seg-label { font: 500 12px/1 var(--sans); color: var(--dim); user-select: none; }
   .seg button:hover { color: var(--text); transform: none; filter: none; }
   .seg button.active { background: none; color: var(--text); }
   .seg button.active::after {
@@ -773,7 +774,8 @@
       </div>
       <div class="race-controls">
         <div class="seg" role="group" aria-label="Cerebras reasoning effort">
-          <button type="button" class="active" data-race-effort="low">effort: low</button>
+          <span class="seg-label" aria-hidden="true">effort:</span>
+          <button type="button" class="active" data-race-effort="low">low</button>
           <button type="button" data-race-effort="medium">med</button>
           <button type="button" data-race-effort="high">high</button>
         </div>
