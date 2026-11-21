@@ -140,7 +140,9 @@ function impactPrompt(evidence) {
       : `Risk: ${evidence.risk.level}, ${evidence.direct.length} direct and ${indirect.length} indirect.`,
     // The graph is complete, so a tool round trip would only re-read what is
     // already on the page. Saying that here keeps the aided turn to one call.
-    "This graph is parsed and complete, so do not invent or drop edges. Answer from this list directly instead of reading the repository, name the affected paths exactly as listed, and cite the line where each direct import sits. If the list is empty, say so plainly.",
+    // The list must be enumerated, not summarised: a shorter prose answer named
+    // 3 of the 21 listed paths and made the graph look worse than it is.
+    "This graph is parsed and complete, so do not invent or drop edges. Do not read the repository. Answer from this list directly: give the affected paths exactly as written above, one per line, direct importers first, and cite the line where each direct import sits. One short lead sentence is enough, then the list. If the list is empty, say so plainly.",
   ].join("\n");
 }
 

@@ -1592,6 +1592,10 @@ function paintResult(data) {
     setStatus(`${data.model} · ${data.usage?.output ?? 0} tokens out`);
   }
   renderBlindspot(data.blindspot || null);
+  // The chip names the model that answered, and the answer can come from the
+  // fallback after the first-token budget. Re-read health here so the header can
+  // never name a model this turn did not use.
+  loadHealth();
 }
 
 function renderHistory() {
@@ -1909,6 +1913,9 @@ $("race-go").addEventListener("click", async () => {
 });
 
 loadHealth();
+// The queue decides which model answers, and it moves between turns. Keep the
+// chip following it rather than freezing whatever was true at page load.
+setInterval(loadHealth, 15_000);
 loadRepos().then(() => loadImpact());
 </script>
 </body>
