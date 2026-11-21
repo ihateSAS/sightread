@@ -65,7 +65,7 @@ Do all of this before Saturday. Scaffolding and boilerplate are explicitly allow
 All three satisfy "OpenClaw harness + Kimi central". Ranked by demo-per-hour-of-build.
 
 ### A. Repo Time Machine — *recommended*
-Drop a GitHub URL, ask anything about the codebase, get an answer with `file:line` citations in ~2 seconds. The 1M context is the trick: it isn't retrieving from an index, it's *reading*.
+Drop a GitHub URL, ask anything about the codebase, get an answer with `file:line` citations in ~2 seconds. No embedding index: the agent opens scoped files with tools, guided by a locally parsed import graph. The 1M window is headroom, not a repo-sized prompt.
 
 - **Why it wins:** the event's own copy is "refactoring legacy code, exploring new codebases." You are demoing the thing they asked for.
 - **OpenClaw shape:** a skill with tools (clone, `rg`, read) that the agent loops over. Genuinely uses the harness rather than wrapping a chat completion.
@@ -119,7 +119,7 @@ openclaw agent -m "Where does auth expire in repos/owner__name?" \
 
 **The remaining cost is the system prompt, not the model.** A default agent shipped 25 skills and five workspace files (18.5k chars) before saying a word. The scoped agent in `openclaw/sightread-agent.patch.json5` carries one skill and injects no workspace files: prompt 18,447 → 10,157 tokens, turn 3,846ms → 2,041ms.
 
-**Consequence for the pitch:** budget ~2s per agent turn. Do not claim sub-second end-to-end; claim that the model reads the whole repo in one pass. Model speed is what the race page shows, separately and honestly.
+**Consequence for the pitch:** budget ~2s per agent turn. Do not claim sub-second end-to-end, and do not claim the model reads the whole repo. Claim that the agent reads the files that matter inside one turn, starting from a parsed import graph. Model speed is what the race page shows, separately and honestly.
 
 **3. Session-backed app.**
 Same gateway, plus `--session-id` so context survives across turns. Worth it only if the product genuinely needs multi-turn memory.

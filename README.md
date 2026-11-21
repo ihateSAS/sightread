@@ -22,22 +22,42 @@ a guess.
 That is the product thesis: the graph is computed, the reading is scoped, and the
 model narrates only what it can cite.
 
-## What the model does not do
+## What this is not
 
-Repo chat is crowded. CodeLens, Sherlock, GitLab Duo and CodeMap AI all put an
-assistant in front of a codebase, and GitDiagram already turns a repository into
-an architecture diagram with a narrated video. Answering questions well is table
-stakes, not a differentiator.
+Computed change impact is not new, and Sightread did not invent it. There is a
+cluster of local graph tools that already answer "what breaks if I change this"
+from parsed code, usually as MCP servers or CLIs for coding agents:
 
-So the second surface is **computed, not generated**. The change-impact map in
-`app/lib/impact.mjs` parses real import statements, resolves relative specifiers
-against the files that actually exist, and walks a file's dependents outward. The
+- [codebase-index](https://github.com/denfry/codebase-index) predicts change
+  impact with file:line evidence and labels its graph coverage.
+- [code-review-graph](https://github.com/tirth8205/code-review-graph) builds a
+  Tree-sitter graph of callers, dependents and tests, then scores the risk.
+- [repograph-codeintel](https://pypi.org/project/repograph-codeintel/) returns
+  dependents with evidence, confidence labels and explicit blind spots.
+- [code-graph-mcp](https://github.com/sdsrss/code-graph-mcp) and
+  [tree-sitter-analyzer](https://github.com/aimasteracc/tree-sitter-analyzer) do
+  transitive call-graph impact as agent tools.
+
+Several are deeper than this project. They parse symbols and calls with
+Tree-sitter, cover more languages, track test impact and report what their graph
+cannot see. Sightread walks file-level imports only: JavaScript and TypeScript
+`import`/`require` edges, plus relative Python imports. Everything else is
+counted as a file but contributes no edges. It cannot see a function call inside
+an imported module, and it has nothing to say about dynamic imports. That is a
+real limit, not a design virtue.
+
+Repo Q&A with citations is table stakes too. The difference this project can
+defend is narrower: the computed evidence and the model's own answer sit on the
+same screen, with a switch between them. Turning the graph off reruns the same
+question with the same model and no `<computed_impact>` block, so the gap between
+what the model works out alone and what the graph knows is visible instead of
+buried in a footnote.
+
+The graph itself is in `app/lib/impact.mjs`: it parses import statements, resolves
+relative specifiers against files that exist, and walks dependents outward. The
 panel lists direct importers with the line their import sits on, then indirect
-ones by hop distance. No model touches that graph, so it cannot invent an edge.
-The model's job is to explain the list, not to produce it.
-
-That is the claim worth checking in a demo: every arrow on screen is a line you
-can open.
+ones by hop distance. No model touches it, so it cannot invent an edge. The model
+explains the list; it does not produce it.
 
 ### What the counts mean
 

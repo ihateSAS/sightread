@@ -98,8 +98,10 @@ On Express it parses the import graph across 142 files and 160 internal imports,
 then resolves a change to lib/application.js into 100 downstream files. One direct hit at lib/express.js
 line 18, ninety nine indirect, three levels deep into the examples. That list is
 computed from the import graph, not written by the model, and you can switch the
-graph off in the UI to watch the model answer the same question on its own. The
-difference is the point of the project.
+graph off in the UI to watch the model answer the same question on its own. Graph
+tools that do blast radius already exist; what I had not seen was the model's own
+answer sitting next to that evidence with a switch between them. That comparison
+is the point of the project.
 
 Speed is load-bearing here because the agent reads source files one at a time
 inside a single OpenClaw turn. On Kimi K3.1 Pro via Cerebras the whole scoped read
