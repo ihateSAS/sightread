@@ -59,6 +59,11 @@ panel lists direct importers with the line their import sits on, then indirect
 ones by hop distance. No model touches it, so it cannot invent an edge. The model
 explains the list; it does not produce it.
 
+Sightread is also not a multi-agent world. It does not run agents that explore a
+game, earn money, die, or breed by fitness. It runs one question twice, with and
+without computed evidence, and counts how many downstream files the unaided model
+named. The claim is about developer decisions, not simulation spectacle.
+
 ### What the counts mean
 
 `142 files · 160 imports parsed` is the parser's inventory, not the repository's

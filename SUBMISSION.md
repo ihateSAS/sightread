@@ -58,6 +58,14 @@ put Kimi back in the title.
 
 ---
 
+## Competitive read (Nov 20)
+
+The swarm video that is circulating is a 96-second RuneScape run: 25 agents trying to make money under evolutionary pressure, using Voyager/MineDojo for skill development, RuneBench/rs-sdk as the world, Pi Harness per agent, death dropping items, and fitness-weighted mating. It is spectacle, not a hackathon submission proof: it does not show Cerebras/Kimi latency, a repo question answered with file and line citations, or a measurable gap between a model with and without evidence.
+
+Do not chase it. Sightread is not a multi-agent world and does not evolve skills. Its defensible beat is narrower and stronger on camera: the graph lists 100 downstream files, the same model with no graph names only a fraction of them, and the page counts the gap while the answer streams in 0.61s. If a judge asks why Sightread is not "25 agents doing things," the answer is that the product is a decision tool for a change, not a simulation. The swarm can look alive while proving nothing about whether the answer was right.
+
+---
+
 ## The 60-second video (script, timed against the clock)
 
 The layout and the graph counts below were checked against
