@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Ask a codebase anything. Every answer cites the file and line it came from.",
+  "description": "Ask a codebase anything. Change answers cite the file and line evidence.",
   "scripts": {
     "start": "node app/server.mjs",
     "start:gateway": "SIGHTREAD_TRANSPORT=gateway node app/server.mjs",

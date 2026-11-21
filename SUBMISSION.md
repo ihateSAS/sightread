@@ -1,9 +1,10 @@
 # Submission Pack
 
 The copy is written and the measured figures are filled in. They were measured on
-`qwen-3.8-27b` because Kimi capacity has not landed; if it lands before you post,
-re-measure, swap the numbers, and put Kimi back in the title. Only the video
-attachment stays blank until the take exists.
+`qwen-3.8-27b` because Kimi capacity has not landed; Kimi speed numbers are
+pending, not claimed. If capacity lands before you post, re-measure, swap the
+numbers, and put Kimi back in the title. Only the video attachment stays blank
+until the take exists.
 
 ---
 
@@ -18,13 +19,14 @@ Project Description:
 Ask Sightread about a change to a repository and it answers twice: once with the
 parsed import graph in the prompt, and once with the same model and no graph at
 all. Point it at Express, ask about lib/application.js, and the graph lists 100
-downstream files starting at lib/express.js line 18, while the same model, with the
-same tools and no graph, has to work that list out itself. The pair is the product:
-computed evidence with clickable file and line citations, the model's answer
-without that evidence, and a count of how much of the graph the unaided run named.
-Speed is load-bearing because every change question is answered twice. On Cerebras
-the graph-backed answer streams its first token in 0.61s and finishes in 0.86s at
-424 tok/s, which is what makes asking twice usable instead of wasteful.
+downstream files starting at lib/express.js line 18, while the same model with no
+graph has to work that list out itself. The pair is the product: computed
+evidence with clickable file and line citations, the model's answer without that
+evidence, and a count of how much of the graph the unaided run named. Speed is
+load-bearing because every change question is answered twice. Measured on the
+qwen fallback on Cerebras, the graph-backed answer streamed its first token in
+0.23s and finished in 0.38s, which is what makes asking twice usable instead of
+wasteful. Kimi numbers remain pending capacity.
 
 GitHub Repository: https://github.com/ihateSAS/sightread
 Demo Video: <attach the 60s MP4>
@@ -34,27 +36,29 @@ Discord gets the **demo video attached or linked**, plus the description. Post i
 
 ---
 
-## Measured for this cut (Nov 18, 2026)
+## Measured for this cut (Nov 20, 2026)
 
-Every figure below came from the live page on `repos/expressjs__express`, with
-`npm start` streaming straight from Cerebras. The machine was loaded (load
-average 33), so these are conservative numbers, not a best case.
+Every figure below came from a fresh `npm start` run against
+`repos/expressjs__express`, with Ask streaming straight from Cerebras. Health
+reported configured `cerebras/kimi-k3.1-pro`, answering
+`cerebras/qwen-3.8-27b`, transport `cerebras`. Treat these as one verified run,
+not a promise for every load condition.
 
 | Run | First token | Total | Throughput | What was on screen |
 |---|---|---|---|---|
-| Ask, graph on | 0.61s | 0.86s | 424 tok/s | 397→365 tokens, 21 of 100 named |
-| Ask, graph off | 0.21s | 1.49s | — | 6 of 100 named alone, 21 with the graph |
-| Race, Cerebras, 600 tokens | 0.22s | 0.38s | 1,583 tok/s | qwen-3.8-27b |
-| Race, OpenRouter, 600 tokens | 0.79s | 2.52s | 238 tok/s | qwen/qwen3.8-27b |
+| Ask, graph on | 0.23s | 0.38s | — | 397 input → 304 output tokens, 21 of 100 named |
+| Ask, graph off | 0.13s | 1.12s | — | 84 input → 1,090 output tokens, 3 of 100 named alone, 21 with the graph |
+| Race, Cerebras, 600 tokens | 0.19s | 0.41s | 1,482 tok/s | qwen-3.8-27b |
+| Race, OpenRouter, 600 tokens | 1.19s | 2.55s | 236 tok/s | qwen/qwen3.8-27b |
 
 **Model caveat.** `cerebras/kimi-k3.1-pro` still returns `model_not_found` on the
 public key, so every number above was measured on the declared fallback,
 `qwen-3.8-27b`. The app says so on screen: the header chip reads
 `qwen-3.8-27b cerebras`, and the answer carries a fallback banner. When capacity
-lands, swap the key, restart, and confirm the boot line reads
-`"primary":"cerebras/kimi-k3.1-pro","kimiLive":true`. The chip, the banner and
-the model chain switch to Kimi with no code change. Re-measure before posting and
-put Kimi back in the title.
+lands, swap the key, restart, and confirm `/api/health` reports
+`answerModel` as `cerebras/kimi-k3.1-pro` and `answerTransport` as `cerebras`.
+The chip, the banner and the model chain switch to Kimi with no code change.
+Re-measure before posting and put Kimi back in the title.
 
 ---
 
@@ -62,14 +66,14 @@ put Kimi back in the title.
 
 The swarm video that is circulating is a 96-second RuneScape run: 25 agents trying to make money under evolutionary pressure, using Voyager/MineDojo for skill development, RuneBench/rs-sdk as the world, Pi Harness per agent, death dropping items, and fitness-weighted mating. It is spectacle, not a hackathon submission proof: it does not show Cerebras/Kimi latency, a repo question answered with file and line citations, or a measurable gap between a model with and without evidence.
 
-Do not chase it. Sightread is not a multi-agent world and does not evolve skills. Its defensible beat is narrower and stronger on camera: the graph lists 100 downstream files, the same model with no graph names only a fraction of them, and the page counts the gap while the answer streams in 0.61s. If a judge asks why Sightread is not "25 agents doing things," the answer is that the product is a decision tool for a change, not a simulation. The swarm can look alive while proving nothing about whether the answer was right.
+Do not chase it. Sightread is not a multi-agent world and does not evolve skills. Its defensible beat is narrower and stronger on camera: the graph lists 100 downstream files, the same model with no graph names only a fraction of them, and the page counts the gap while the answer streams in 0.23s on the current qwen fallback. If a judge asks why Sightread is not "25 agents doing things," the answer is that the product is a decision tool for a change, not a simulation. The swarm can look alive while proving nothing about whether the answer was right.
 
 ---
 
 ## The 60-second video (script, timed against the clock)
 
 The layout and the graph counts below were checked against
-`repos/expressjs__express` on Nov 18. Coverage varies per run, so read that count
+`repos/expressjs__express` on Nov 20. Coverage varies per run, so read that count
 off the screen rather than reciting one from memory. Total runtime 0:58, two
 seconds of slack.
 
@@ -99,11 +103,11 @@ seconds of slack.
 | Clock | On screen | Say | You do |
 |---|---|---|---|
 | **0:00–0:06** | Impact panel already populated, summary reading `application.js · high risk · 1 direct, 99 indirect · showing 14 of 100`; toggle reads `paired run on` | "This is Express. Change one file, and a hundred others sit downstream." | Nothing. Let the number sit still for a beat before you talk. |
-| **0:06–0:12** | Repo selected, impact header reading `142 files · 160 imports parsed` | "Sightread parsed 142 files and 160 imports before the agent read a single one." | Point at the count, then at the hot chips. |
+| **0:06–0:12** | Repo selected, impact header reading `142 files · 160 imports parsed` | "Sightread parsed 142 files and 160 imports before the model read a single one." | Point at the count, then at the hot chips. |
 | **0:12–0:24** | Question submitted: *If I change lib/application.js, what breaks?* Graph answer appears, then `Without the graph` starts filling underneath | "Ask it once and it answers twice. First with the parsed graph in the prompt." | Submit at 0:12. Let the first answer land without narrating the file list. |
 | **0:24–0:36** | Blind spot pane filled: `N of 100 downstream files named by the model alone · M with the graph`, plus the unaided answer | "Then the same model with no graph. That count is how many of the graph's hundred it found by itself." | Point at the count, then let the unaided text sit. Read only numbers on screen. |
 | **0:36–0:44** | Impact panel: `1 direct, 99 indirect · showing 14 of 100`; first row `lib/express.js` with `imports it · line 18`; rows tagged `depth 2`, `depth 3` | "Every one of those edges is a parsed import you can open. The model wrote the sentence. The graph wrote the list." | Scroll slowly and stop on a `depth 3` row. |
-| **0:44–0:53** | Race panel, `1..1000 TPS Test` preset, 600 tokens, both providers streaming | "Same model, same prompt, two providers, timed from the same start." | At 0:45 click the `1..1000 TPS Test` preset, then Start Race. The measured cut was 0.38s vs 2.52s; say only what the panel shows. |
+| **0:44–0:53** | Race panel, `1..1000 TPS Test` preset, 600 tokens, both providers streaming | "Same model, same prompt, two providers, timed from the same start." | At 0:45 click the `1..1000 TPS Test` preset, then Start Race. The fresh verified run was 0.41s vs 2.55s; say only what the panel shows. |
 | **0:53–0:58** | Pull back to the impact panel | "Sightread. Ask your repo, then see what your change breaks." | Stop moving. Repo URL goes in the caption, never spoken. |
 
 ### Rules for the edit
@@ -131,15 +135,15 @@ seconds of slack.
 **Title**
 
 ```text
-Sightread: change one file in Express, see the 100 files downstream, in 0.61s on Cerebras
+Sightread: change one file in Express, see the 100 files downstream, in 0.23s on Cerebras
 ```
 
 **Body**
 
 ```text
-I point Sightread at a repo and ask it a question. Every answer cites the file and
-line it came from, which is table stakes. The part I wanted was the other half:
-what breaks if I change this?
+I point Sightread at a repo and ask it a question. Change answers cite the file
+and line evidence behind them, which is table stakes. The part I wanted was the
+other half: what breaks if I change this?
 
 On Express it parses the import graph across 142 files and 160 internal imports,
 then resolves a change to lib/application.js into 100 downstream files. One direct
@@ -151,18 +155,20 @@ radius already exist; what I had not seen was the model's own answer next to tha
 evidence, with the gap counted. That comparison is the point of the project.
 
 Speed is load-bearing here because every change question is answered twice. The
-graph replaces exploration rather than adding to it: the aided answer is one turn
-with no tool calls. On Cerebras the graph-backed answer streams its first token in
-0.61s and finishes in 0.86s at 424 tok/s, while the unaided run takes 1.49s and
-names a fraction of the graph's hundred files. That is what makes asking twice
-usable instead of wasteful. The same pair on a slow endpoint is the reason people
-stop asking their codebase questions.
+graph replaces exploration rather than adding to it: the aided answer is one
+streamed answer with no tool calls. Measured on the qwen fallback on Cerebras
+while Kimi capacity is pending, the graph-backed answer streamed its first token
+in 0.23s and finished in 0.38s, while the unaided run took 1.12s and named a
+fraction of the graph's hundred files. That is what makes asking twice usable
+instead of wasteful. The same pair on a slow endpoint is the reason people stop
+asking their codebase questions.
 
 60 second demo: <video attached>
 Code, MIT: https://github.com/ihateSAS/sightread
 
-Built during the Kimi K3.1 Pro hackathon, using the OpenClaw harness on Cerebras.
-#KimiOnCerebras
+Built during the Kimi K3.1 Pro hackathon on Cerebras; OpenClaw provider config
+and CLI fallback are in the repo, while the demo Ask path streams directly from
+Cerebras so first-token time is measured honestly. #KimiOnCerebras
 ```
 
 - Flair: **Kimi K3.1 Pro Hackathon**
@@ -183,11 +189,10 @@ Ask a code change question and Sightread answers twice: once with the repo's
 parsed import graph, once with the same model and no graph. 100 files downstream
 on Express, and what the unaided run missed.
 
-0.61s to first token, 424 tok/s on @Cerebras. #KimiOnCerebras
+0.23s to first token on @Cerebras, qwen fallback while Kimi capacity is pending. #KimiOnCerebras
 ```
 
-That is 265 characters, so it fits without a paid account. Do not add the repo link
-to it.
+That fits without a paid account. Do not add the repo link to it.
 
 First reply (repo lives here, not in the first post):
 
@@ -210,6 +215,6 @@ know what it missed. With the parsed imports: 100. That gap is the whole product
 - [ ] Side-by-side against a GPU provider is visible, with real timers
 - [ ] No API key, email, notification, or personal tab anywhere in frame
 - [ ] Links resolve when logged out
-- [ ] Repo is public and its README says how OpenClaw is used
+- [ ] Repo is public and its README accurately describes the OpenClaw fallback and direct-stream demo path
 - [ ] Header chip says the model that answered, and no fallback banner is in frame if the copy claims Kimi
 - [ ] Posting from an account that isn't rate-limited or shadowbanned (check with a logged-out search)

@@ -1,6 +1,6 @@
 # Sightread
 
-**Ask a codebase anything. Every answer cites the file and line it came from.**
+**Ask a codebase anything. Change answers cite the file and line evidence.**
 
 Built for the Cerebras × Kimi K3.1 Pro × OpenClaw weekend hackathon, Nov 21–22 2026.
 
@@ -10,14 +10,14 @@ Built for the Cerebras × Kimi K3.1 Pro × OpenClaw weekend hackathon, Nov 21–
 
 Most code assistants index a repository into chunks, embed them, and retrieve the
 few that look relevant to your question. Sightread skips the index. It parses the
-repository's own imports, then hands a scoped OpenClaw agent the files a question
-actually needs, one tool call at a time.
+repository's own imports, then gives the model only the scoped evidence a
+question resolves to, one prompt at a time.
 
-The 1M-token window is headroom, not a paste buffer. Nothing ships the whole
-repository to the model: a turn carries a scoped system prompt and either the
-parsed evidence for the file you asked about, or the handful of files the agent
-chose to open. On Express the local graph covers 142 files and 160 internal
-imports, so the agent starts from a real dependency list rather than a guess.
+Long context is headroom, not a paste buffer. Nothing ships the whole repository
+to the model: a turn carries a scoped prompt and either the parsed evidence for
+the file you asked about or a best-effort unaided prompt. On Express the local
+graph covers 142 files and 160 internal imports, so the aided answer starts from
+a real dependency list rather than a guess.
 
 That is the product thesis: the graph is computed, the reading is scoped, and the
 model narrates only what it can cite.
@@ -86,31 +86,29 @@ turn, then a second turn with `impact:false` and no computed block. The second
 answer is rendered under the first and compared against the graph. That is the
 feature, and it is why a change question costs two agent turns rather than one.
 
-## How OpenClaw is load-bearing
+## How OpenClaw is used
 
-This is not a chat wrapper around a completion endpoint. Every question is a real
-OpenClaw agent turn:
+OpenClaw is in the project, but the Ask panel does not route every question
+through the OpenClaw agent loop. With `CEREBRAS_API_KEY` set, `/api/ask` and
+`/api/ask/stream` call Cerebras directly so the page can report real first-token
+time; the header chip shows the actual answering model and transport. The CLI
+gateway/exec path remains for keyless setups and as a fallback, and the OpenClaw
+provider patch, scoped `sightread` agent config, and repo-read skill ship with
+the project for that path and for the hackathon harness requirement.
 
 ```bash
-npm run gateway                 # sources .env, runs the gateway
+npm run gateway                 # optional: only for the OpenClaw CLI fallback
 openclaw agent -m "<question>" \
   --agent sightread \
   --model cerebras/kimi-k3.1-pro \
   --thinking low --json
 ```
 
-A warm gateway is deliberate. `agent exec` starts a fresh process per question and
-costs **4.5–5.0s** before the model is called; routing through a running gateway
-brought a median turn from **3,846ms to 2,041ms**, and the scoped `sightread` agent
-(in `openclaw/sightread-agent.patch.json5`) cut the system prompt from **18,447 to
-10,157 tokens** by carrying one skill instead of twenty-five.
-
-Both answers are real agent turns from the same scoped agent, which carries no
-skills and no open-ended tool loop. `--json` returns a stable envelope — `final`,
-`usage`, `toolSummary`, `assistantTurns`, `sessionId` — which the UI renders
-directly. The counters on screen are those numbers, not decoration: an answer
-lands in one or two model calls, because the graph has already done the reading.
-The unaided run is the identical turn minus the graph.
+The direct path was a measured choice: on this machine the gateway spent 14–22s
+of some turns in its own session store while the same prompt answered from the
+provider in about 2s. That does not make the gateway the demo path. The demo
+path is the direct stream; OpenClaw remains the configured harness and fallback
+surface, and the UI says which transport answered.
 
 Two skills ship with the project:
 
@@ -121,15 +119,20 @@ Two skills ship with the project:
 
 ## The model
 
-Kimi K3.1 Pro on Cerebras, registered as an OpenAI-compatible provider in
-`openclaw/kimi-cerebras.patch.json5`:
+Kimi K3.1 Pro on Cerebras is the configured primary, registered as an
+OpenAI-compatible provider in `openclaw/kimi-cerebras.patch.json5`:
 
 - provider `cerebras` → `https://api.cerebras.ai/v1`
-- primary model `cerebras/kimi-k3.1-pro`, fallback `cerebras/gpt-oss-120b`
-- `reasoning_effort` bounded to `low|medium|high|max` — K3.1 Pro rejects `none`
+- configured primary `cerebras/kimi-k3.1-pro`
+- direct-stream chain: Kimi K3.1 Pro first, then `cerebras/qwen-3.8-27b`, then `cerebras/gpt-oss-120b`
+- `reasoning_effort` bounded to `low|medium|high|max` for K3.1 Pro — it rejects `none`
 
-`--thinking low` is deliberate. This is a reading task; reasoning tokens are
-latency you can't show on camera.
+Kimi end-to-end is **pending capacity**: on the current key the provider still
+returns `model_not_found` for `kimi-k3.1-pro`, so the fresh verified run answered
+with `qwen-3.8-27b`. Treat every current speed number as qwen-fallback
+measurements, not Kimi measurements. The page’s thinking selector applies to
+non-qwen models; qwen is forced to reasoning off because it can spend a short
+answer’s budget on hidden reasoning.
 
 ## Run it
 
@@ -139,15 +142,16 @@ export CEREBRAS_API_KEY=csk-...
 openclaw config patch --file ./openclaw/kimi-cerebras.patch.json5
 openclaw config patch --file ./openclaw/sightread-agent.patch.json5
 mkdir -p skills && cp -R openclaw/skills/repo-read skills/repo-read
-openclaw gateway restart
+openclaw gateway restart                         # optional: CLI fallback only
 
 ./check-cerebras.sh                        # key, model inventory, tok/s, one turn
 npm start                                  # http://localhost:8787 (auto-loads .env, Ask + Speed Race)
 npm test                                   # run server/repo/env unit tests
 ```
 
-The scoped agent reads skills from this repo's `skills/` directory, not the global
-one — that is what keeps the system prompt at ~10k tokens instead of ~18k.
+With a Cerebras key present, `npm start` streams Ask directly from Cerebras and
+does not need the gateway. The scoped OpenClaw agent config and skills are for
+the CLI/gateway fallback path.
 
 Environment:
 
@@ -175,47 +179,49 @@ SUBMISSION.md                   the Discord/Reddit/X submission copy
 
 ## Status
 
-Working end to end on `cerebras/qwen-3.8-27b`: repo clone, parsed impact graph,
-paired answers, clickable citations, race panel, TPS lab. `kimi-k3.1-pro` still
-returns `model_not_found` until the capacity request is processed; the config
-lists it as the primary model and the agent uses the fallback while it waits.
+Working end to end on `cerebras/qwen-3.8-27b` while Kimi capacity is pending:
+repo clone, parsed impact graph, paired answers, clickable citations, race panel,
+TPS lab. `kimi-k3.1-pro` still returns `model_not_found` until the capacity
+request is processed; the config lists it as the primary and the stream chain
+uses the qwen fallback while it waits. Kimi speed numbers are **pending**, not
+claimed.
 
-Measured on `repos/expressjs__express`, Nov 18, one paired run on
-`qwen-3.8-27b` (the declared fallback while Kimi capacity is pending):
+Fresh verified run on `repos/expressjs__express`, Nov 20, on the qwen fallback
+(configured model `cerebras/kimi-k3.1-pro`, answering model
+`cerebras/qwen-3.8-27b`, transport `cerebras`):
 
 | Run | First token | Wall | Downstream named |
 |---|---|---|---|
-| With graph | 0.61s | 0.86s | 21 of 100 |
-| Graph off | 0.21s | 1.49s | 6 of 100 |
+| With graph | 0.23s | 0.38s | 21 of 100 |
+| Without graph | 0.13s | 1.12s | 3 of 100 |
 
 The graph resolves `lib/application.js` to 100 downstream files: one direct
 importer at `lib/express.js:18` and 99 indirect across three levels. The aided
 turn answered from that list and named 21 of them. The unaided turn was the same
 model with no graph, asked to make its best guess from what it knows, and named
-6. Coverage varies per run, and comes from `app/public/coverage.mjs`, the module
-the page imports, so the number on screen is the number the tests check. The
-baseline is a real attempt on purpose: handing it only a path invited "I have no
-file access", which would inflate the gap without testing the graph.
+3 in this run. Coverage varies per run; the earlier Nov 18 run named 6 alone.
+Coverage comes from `app/public/coverage.mjs`, the module the page imports, so
+the number on screen is the number the tests check. The baseline is a real
+attempt on purpose: handing it only a path invited "I have no file access",
+which would inflate the gap without testing the graph.
 
-Wall time is a range: the first ask after boot also pays the import parse (about
-1s on this machine), and this pair landed at 0.86s and 1.49s with the host under
-load. The unaided turn reaches its first token sooner because it has no graph to
-wait for, then runs longer because it writes the list itself. A third question
-inside the same minute still reaches the ceiling, and then the turn spends its
-45s deadline waiting rather than answering, so a demo asks one pair and pauses
-before the next ask.
+Wall time is a range: the first ask after boot also pays the import parse, and
+the unaided turn reaches its first token sooner because it has no graph to wait
+for, then runs longer because it writes the list itself. A third question inside
+the same minute can reach the Cerebras ceiling, so a demo asks one pair and
+pauses before the next ask.
 
 Three different numbers live in this project, and they measure different things:
 
-| Path | What it measures | Measured |
+| Path | What it measures | Fresh verified run |
 |---|---|---|
-| Speed Race panel (raw streaming) | first token, then a 600-token answer, same model both sides | 222ms first token, 379ms total, 1,583 tok/s wall (3,030 tok/s server) |
-| Speed Race panel, OpenRouter lane | the same 600 tokens, same model | 786ms first token, 2.52s total, 238 tok/s wall |
-| Ask panel, aided turn | graph parsed locally, then the first streamed chunk | 610ms first token, 860ms total |
-| Ask panel, unaided turn | same model, same question, no graph | 210ms first token, 1.49s total |
+| Speed Race panel (raw streaming) | first token, then a 600-token answer, same model both sides | 190ms first token, 405ms total, 1,482 tok/s wall |
+| Speed Race panel, OpenRouter lane | the same 600 tokens, same model | 1,188ms first token, 2.55s total, 236 tok/s wall |
+| Ask panel, aided turn | graph parsed locally, then the first streamed chunk | 230ms first token, 384ms total |
+| Ask panel, unaided turn | same model, same question, no graph | 128ms first token, 1.12s total |
 
-The host was under load (average 33) during this run, so these are conservative
-numbers, not a best case.
+Treat these as one fresh run on the qwen fallback, not a promise for every run.
+Kimi numbers remain pending capacity.
 
 The Ask panel streams directly from Cerebras, so its first-token number is the
 first delta the browser received, not an estimate. That is a measured choice:
@@ -248,8 +254,8 @@ no-graph turn as soon as the parsed impact arrives, so both answers run at once.
 
 A sub-second clip is almost always a streamed completion with a short answer.
 Sightread can produce that number on the race panel, and it is the honest one to
-put next to tok/s. The ask panel measures a full agent turn, and reports both
-its first token and its total on screen.
+put next to tok/s. The Ask panel measures a full streamed answer, and reports
+both its first token and its total on screen.
 
 The public Cerebras tier allows 30,000 tokens/minute and counts the requested
 output against it. The provider config therefore asks for 4,096 output tokens,

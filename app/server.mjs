@@ -197,6 +197,7 @@ async function cerebrasModelIds() {
       headers: { authorization: `Bearer ${process.env.CEREBRAS_API_KEY}` },
       signal: AbortSignal.timeout(3000),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     modelListCache = {
       key: cacheKey,
@@ -204,9 +205,12 @@ async function cerebrasModelIds() {
       ids: Array.isArray(data?.data) ? data.data.map((m) => m.id) : null,
     };
   } catch {
-    // Unknown is not the same as missing: keep claiming the configured model
-    // rather than inventing a fallback the turn may not have used.
-    modelListCache = { key: cacheKey, at: Date.now(), ids: null };
+    // A failed refresh must not erase the last known list. Otherwise health
+    // can flip back to claiming the configured Kimi model while the stream
+    // chain is actually answering with the qwen fallback.
+    if (modelListCache.key !== cacheKey || !Array.isArray(modelListCache.ids)) {
+      modelListCache = { key: cacheKey, at: Date.now(), ids: null };
+    }
   }
   return modelListCache.ids;
 }

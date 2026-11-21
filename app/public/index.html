@@ -673,7 +673,7 @@
           <span class="brand-name">Sightread</span>
         </a>
         <span class="brand-sep" aria-hidden="true"></span>
-        <span class="brand-tag">Kimi K3.1 Pro · Cerebras · OpenClaw</span>
+        <span class="brand-tag">Cerebras · OpenClaw harness</span>
       </div>
 
       <nav class="nav-tabs" aria-label="Workspace mode">
@@ -712,14 +712,13 @@
     <header class="hero">
       <h1>Ask a codebase<br /><em>anything.</em></h1>
       <p class="sub">
-        Ask a repository a question and every answer points at the exact file and line it used.
-        Ask what a change would break and it answers twice, once with the parsed imports and once without
+        Ask a repository a question. Change answers point at the exact file and line evidence
+        behind them. Ask what a change would break and it answers twice, once with the parsed imports and once without
         them, then counts what the model missed.
       </p>
       <p class="method">
-        Sightread clones the repo and parses the import graph locally. A scoped OpenClaw agent then
-        reads only the files a question resolves to, on Cerebras, and answers with the lines it used.
-        No embeddings, no index, and no whole-repo paste.
+        Sightread clones the repo and parses the import graph locally. The server sends the model only the scoped evidence
+        a question resolves to, on Cerebras, and the page links the cited lines. No embeddings, no index, and no whole-repo paste.
       </p>
     </header>
 
@@ -880,7 +879,7 @@
 
 <footer class="foot">
   <div class="foot-inner">
-    <span>MIT · Sightread · Cerebras × Kimi K3.1 Pro × OpenClaw</span>
+    <span>MIT · Sightread · Cerebras × OpenClaw harness</span>
     <span>answers cite exact source lines; click any citation to inspect</span>
   </div>
 </footer>
