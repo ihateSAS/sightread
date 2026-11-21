@@ -44,7 +44,7 @@ export async function streamProvider({ model, thinking, prompt, onChunk, timeout
   // before the first content chunk, so an answer that has started is never cut
   // off mid-sentence, and never to the last candidate because there is nothing
   // left to fall through to.
-  const budgetMs = Math.max(0, Number(process.env.SIGHTREAD_FIRST_TOKEN_BUDGET_MS ?? 2500) || 0);
+  const budgetMs = Math.max(0, Number(process.env.SIGHTREAD_FIRST_TOKEN_BUDGET_MS ?? 5000) || 0);
   const chain = providerChain(model);
 
   for (const [index, candidate] of chain.entries()) {
@@ -196,9 +196,12 @@ export async function streamProvider({ model, thinking, prompt, onChunk, timeout
             : reasoningChars > 0
               ? null
               : 0,
+        // Measured from the turn, not from this attempt: when a queued candidate
+        // is abandoned the caller still waited the budget, and a per-attempt number
+        // would report the fallback's 0.3s for a turn that took 8s on screen.
         promptToFirstDeltaMs:
-          firstDeltaAt === null ? null : Math.round(firstDeltaAt - attemptAt),
-        promptToFirstChunkMs: firstChunkAt === null ? null : Math.round(firstChunkAt - attemptAt),
+          firstDeltaAt === null ? null : Math.round(firstDeltaAt - started),
+        promptToFirstChunkMs: firstChunkAt === null ? null : Math.round(firstChunkAt - started),
         streamMs: firstChunkAt === null ? null : Math.round(endedAt - firstChunkAt),
         totalMs: Math.round(endedAt - started),
         usage: usage

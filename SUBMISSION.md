@@ -124,15 +124,19 @@ first, never the blind-spot count.
 
 ### Recording pre-flight (5 minutes, before you press record)
 
-0. **Check the queue first, then pick the take you are shooting.** The trial
-   endpoint is shared with every team, so the same take can land in 0.9s or 70s.
-   Run `node kimi-queue.mjs` and wait for `queue` under about 3000ms. It prints
-   queue, compute and rate every 90 seconds. **Kimi take:** the queue is short and
-   the chip reads Kimi. **Fallback take:** the queue is long, the app hands the
-   turn to qwen inside the first-token budget, and the chip reads Qwen. Both are
-   honest; leave the app alone and shoot the fallback take if the queue will not
-   settle. Do not raise the budget to force a Kimi answer through a 70s queue,
-   because the answer then lands after the video ends.
+0. **Kimi is the model the rules name, so the take you want is a Kimi take.**
+   The organizers say configure `moonshotai-kimi-k3.1-pro-trial` and OpenClaw, and
+   the awards are for this model on this platform. Nothing in the rules forbids a
+   fallback, so a Qwen take is legal, but it is the event's model answering, not a
+   substituted one. Shoot the fallback take only if the queue never clears, and
+   then disclose it.
+   The trial endpoint is shared, so the same take can land in 0.9s or 70s. Run
+   `node kimi-queue.mjs` and wait for `queue` **under about 5000ms**, which is the
+   shipped first-token budget: under it, Kimi answers and stays in frame. Over it,
+   the app hands the turn to qwen and the chip says so, and the trade is a fallback
+   take. If the queue sits at 6 to 10s and you want the Kimi take anyway, raise
+   `SIGHTREAD_FIRST_TOKEN_BUDGET_MS` to `12000` for the take and restart. Do not
+   raise it for a 70s queue; the answer then lands after the video ends.
 0b. **Make the race lanes match the chip.** They ship as the qwen pair right now,
    because the Kimi trial queue is long and a race held in it would be a
    three-minute beat. For a Kimi take, set them to the Kimi pair so the race is
@@ -365,6 +369,32 @@ fast machine. Check `node kimi-queue.mjs` before measuring, and note the rate
 comes from actual completion tokens.
 
 ---
+
+## Rules compliance, item by item
+
+The organizers' list, and where each item is actually satisfied. Anything not
+listed here is not a rule.
+
+| Rule | Status |
+|---|---|
+| Install OpenClaw, required for all projects | Installed and configured. `openclaw` 2026.11.4 is a boot dependency: the server reports its version in `/api/health`, writes the agent model chain through `openclaw config` at startup, and ships a skill and a provider patch in `openclaw/`. The Ask panel streams direct from Cerebras because OpenClaw's own per-turn prep measured 14 to 34s, which does not fit a 60s video; the CLI path still answers when no key is present. This is disclosed in the README rather than implied. |
+| Configure model `moonshotai-kimi-k3.1-pro-trial`, base URL `https://api.cerebras.ai/v1` | Both are set, in `.env` and in the OpenClaw provider. The header chip names whichever model answered, so a fallback can never be passed off as Kimi. |
+| Demo video max 60 sec | Script is 0:58 with 1:00 as a hard cap and a stated trim order. |
+| Show off Cerebras speed | First token and wall clock are measured live on screen, and the race panel runs the same model on both lanes. |
+| No keys or personal info on screen | Pre-flight hides the key, terminal, bookmarks and notifications; repo chips show owner/name, never a home path. |
+| Post on X, tagging @Cerebras and @Kimi_Moonshot, `#KimiOnCerebras` | Required step 5 below, with the draft in the X section. |
+| Repository in the submission | Public and linked from the Discord block; MIT. |
+| Reddit r/cerebras, flair `Kimi K3.1 Pro Hackathon` | Drafted as the optional entry below. |
+| Speed Bounty uses OpenClaw with Kimi, 5 real gifts, official patch | Separate entry with its own rules section. Not the Sightread video. |
+| Public demos use standard OpenClaw, not the patch | The patch is only for the bounty measurement. |
+
+Nothing in the rules requires every inference call to pass through the agent loop,
+and nothing forbids a fallback model, so neither is a violation. Both are stated
+plainly because a judge will ask.
+
+---
+
+## User-only steps
 
 These are the only items that need the recorder's own hands and accounts.
 Everything above this section is checked against the repo as it exists on `main`.

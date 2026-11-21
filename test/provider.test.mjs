@@ -217,6 +217,13 @@ test("a queued primary is abandoned for the next model instead of waited on", as
   });
   t.after(() => provider.close());
   useProviderEnv(t, provider.url);
+  // Pin the budget so the test does not depend on the shipped default.
+  const prevBudget = process.env.SIGHTREAD_FIRST_TOKEN_BUDGET_MS;
+  process.env.SIGHTREAD_FIRST_TOKEN_BUDGET_MS = "300";
+  t.after(() => {
+    if (prevBudget === undefined) delete process.env.SIGHTREAD_FIRST_TOKEN_BUDGET_MS;
+    else process.env.SIGHTREAD_FIRST_TOKEN_BUDGET_MS = prevBudget;
+  });
 
   const started = Date.now();
   const out = await streamProvider({
@@ -227,4 +234,7 @@ test("a queued primary is abandoned for the next model instead of waited on", as
   assert.equal(out.text, "answered instead");
   assert.equal(out.model, "qwen-3.8-27b");
   assert.ok(Date.now() - started < 4_000, "did not wait out the queue");
+  // The reported first token is measured from the turn, so the abandoned budget
+  // still shows up instead of the fallback's own fast start.
+  assert.ok(out.phases.promptToFirstChunkMs >= 300, "first token is turn-relative");
 });

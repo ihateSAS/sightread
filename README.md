@@ -158,7 +158,8 @@ Environment:
 | Variable | Default | Purpose |
 |---|---|---|
 | `CEREBRAS_API_KEY` | — | required for any agent turn |
-| `SIGHTREAD_MODEL` | `cerebras/gpt-oss-120b` | set to `cerebras/kimi-k3.1-pro` once preview access lands |
+| `SIGHTREAD_MODEL` | `cerebras/gpt-oss-120b` | the model to ask for; the event id is `cerebras/moonshotai-kimi-k3.1-pro-trial` |
+| `SIGHTREAD_FIRST_TOKEN_BUDGET_MS` | `5000` | how long one model may stay silent before the next one answers. `0` disables it, which is what a Kimi take wants when the shared trial queue is short |
 | `SIGHTREAD_DEADLINE_MS` | `45000` | hard stop for one turn, so a rate-limited retry cannot hold the request open |
 | `PORT` | `8787` | |
 
