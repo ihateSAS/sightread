@@ -1,0 +1,41 @@
+# Secrets — the whole reason this file exists.
+# The submission asks for a public repo, and CEREBRAS_API_KEY carries elevated
+# hackathon limits. Leaking it in public is a revocation and a scramble.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+cerebras*.txt
+
+# OpenClaw local state (never commit; contains sessions and provider creds)
+.openclaw/
+.openclaw-dev/
+
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+
+# The demo corpus: cloned target repos are data, not source
+repos/
+target-repo/
+corpus/
+
+# Recordings and takes (large; keep them on disk, attach the final to Discord)
+recordings/
+takes/
+*.mov
+*.mp4
+*.webm
+
+# Runtime noise
+*.log
+server.log
+
+# OS
+.DS_Store
+
+# one-off repo bootstrap helper
+.init-commit.sh

@@ -1,0 +1,65 @@
+// OpenClaw config patch: Cerebras as an OpenAI-compatible provider, Kimi K3.1 Pro primary.
+//
+// Apply with:
+//   openclaw config patch --file ./kimi-cerebras.patch.json5 --dry-run
+//   openclaw config patch --file ./kimi-cerebras.patch.json5
+//
+// Requires CEREBRAS_API_KEY in the environment (OpenClaw expands ${...} at load time).
+// gpt-oss-120b is on public shared inference, so this config is testable *before*
+// your private-preview approval lands. Prove the loop on it, then switch.
+{
+  agents: {
+    defaults: {
+      model: {
+        primary: "cerebras/kimi-k3.1-pro",
+        fallbacks: ["cerebras/gpt-oss-120b"],
+      },
+      models: {
+        "cerebras/kimi-k3.1-pro": { alias: "Kimi K3.1 Pro (Cerebras)" },
+        "cerebras/gpt-oss-120b": { alias: "GPT OSS 120B (Cerebras)" },
+      },
+    },
+  },
+  models: {
+    mode: "merge",
+    providers: {
+      cerebras: {
+        baseUrl: "https://api.cerebras.ai/v1",
+        apiKey: "${CEREBRAS_API_KEY}",
+        api: "openai-completions",
+        timeoutSeconds: 120,
+        models: [
+          {
+            id: "kimi-k3.1-pro",
+            name: "Kimi K3.1 Pro (Cerebras)",
+            reasoning: true,
+            input: ["text", "image"],
+            // Moonshot advertises 1M for K3.1 Pro. Cerebras serves it on Dedicated
+            // Inference, so the hosted window can be smaller. Confirm with
+            // `curl -s https://api.cerebras.ai/v1/models` at kickoff and set this
+            // to the advertised context_length -- never claim more than the endpoint serves.
+            contextWindow: 262144,
+            maxTokens: 32768,
+            // Free during the hackathon; zeros stop OpenClaw from pre-flighting on cost.
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+            compat: {
+              // K3.1 Pro accepts low|medium|high|max and defaults to max.
+              // `none` is NOT supported -- never send reasoning_effort: "none".
+              supportsReasoningEffort: true,
+              supportedReasoningEfforts: ["low", "medium", "high", "max"],
+            },
+          },
+          {
+            id: "gpt-oss-120b",
+            name: "GPT OSS 120B (Cerebras)",
+            reasoning: true,
+            input: ["text"],
+            contextWindow: 131072,
+            maxTokens: 32768,
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          },
+        ],
+      },
+    },
+  },
+}

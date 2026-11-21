@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sightread</title>
+<style>
+  :root {
+    --bg: #0b0c0e;
+    --panel: #121417;
+    --line: #23262b;
+    --text: #e8eaed;
+    --dim: #8b929c;
+    --accent: #d7ff3e;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 64px 24px 120px; }
+  header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+  h1 { font-size: 27px; letter-spacing: -0.02em; margin: 0; font-weight: 600; }
+  .tag { font: 11px/1 var(--mono); color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; }
+  .sub { color: var(--dim); margin: 0 0 34px; max-width: 62ch; }
+  .field { margin-bottom: 14px; }
+  label { display: block; font: 11px/1 var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 8px; }
+  input, textarea {
+    width: 100%; background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px;
+    font-family: inherit; font-size: 15px; resize: vertical; outline: none;
+  }
+  input { font-family: var(--mono); font-size: 13px; }
+  input:focus, textarea:focus { border-color: #3a3f47; }
+  .row { display: flex; gap: 10px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+  button {
+    background: var(--accent); color: #0b0c0e; border: 0; border-radius: 9px;
+    padding: 11px 20px; font-weight: 600; font-size: 14px; cursor: pointer;
+  }
+  button:disabled { opacity: 0.45; cursor: default; }
+  button.ghost { background: transparent; color: var(--dim); border: 1px solid var(--line); font-weight: 500; }
+  .meta { font: 12px/1 var(--mono); color: var(--dim); }
+  .answer {
+    margin-top: 40px; border-top: 1px solid var(--line); padding-top: 26px;
+    display: none;
+  }
+  .answer.on { display: block; }
+  .stats { display: flex; gap: 22px; align-items: baseline; margin-bottom: 20px; flex-wrap: wrap; }
+  .stat b { display: block; font: 600 24px/1.1 var(--mono); color: var(--accent); letter-spacing: -0.02em; }
+  .stat span { font: 10px/1 var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; }
+  .body { white-space: pre-wrap; font-size: 15.5px; }
+  .body code, code {
+    font-family: var(--mono); font-size: 13px; background: #1b1e22;
+    padding: 1px 5px; border-radius: 4px; color: #cfe0ff;
+  }
+  .tools { margin-top: 26px; display: flex; gap: 7px; flex-wrap: wrap; }
+  .chip {
+    font: 11px/1 var(--mono); color: var(--dim); border: 1px solid var(--line);
+    border-radius: 999px; padding: 6px 11px;
+  }
+  .err { color: #ff8f7a; font-family: var(--mono); font-size: 13px; white-space: pre-wrap; }
+  .spin { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: p 1s infinite ease-in-out; }
+  @keyframes p { 0%,100% { opacity: 0.25 } 50% { opacity: 1 } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Sightread</h1>
+    <span class="tag">Kimi K3.1 Pro · Cerebras · OpenClaw</span>
+  </header>
+  <p class="sub">Ask a codebase anything. Every answer cites the file and line it came from.</p>
+
+  <div class="field">
+    <label for="repo">repository</label>
+    <input id="repo" placeholder="https://github.com/owner/name  or  /path/to/local/repo" spellcheck="false" />
+  </div>
+
+  <div class="field">
+    <label for="q">question</label>
+    <textarea id="q" rows="3" placeholder="Where does auth expire, and what breaks if I change it?"></textarea>
+  </div>
+
+  <div class="row">
+    <button id="ask">Ask</button>
+    <button id="prep" class="ghost">Clone repo</button>
+    <span class="meta" id="status"></span>
+  </div>
+
+  <section class="answer" id="answer">
+    <div class="stats">
+      <div class="stat">
+        <b id="s-time">–</b>
+        <span>wall clock</span>
+      </div>
+      <div class="stat">
+        <b id="s-turns">–</b>
+        <span>agent turns</span>
+      </div>
+      <div class="stat">
+        <b id="s-tools">–</b>
+        <span>tool calls</span>
+      </div>
+      <div class="stat">
+        <b id="s-tps">–</b>
+        <span>tok/s</span>
+      </div>
+    </div>
+    <div class="body" id="s-body"></div>
+    <div class="tools" id="s-tools-list"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let currentRepo = "";
+
+const setStatus = (text, busy = false) => {
+  $("status").innerHTML = busy ? `<span class="spin"></span> ${text}` : text;
+};
+
+async function post(path, body) {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+  return { ok: res.ok, data };
+}
+
+// Render code spans and highlight file:line citations without trusting HTML.
+function render(text) {
+  const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  return esc(text).replace(
+    /((?:[\w./-]+\/)*[\w.-]+\.(?:js|mjs|cjs|ts|tsx|jsx|py|go|rs|rb|java|kt|c|h|cc|cpp|md|json|toml|ya?ml)):(\d+)(?:-(\d+))?/g,
+    '<code>$1:$2$3</code>'
+  );
+}
+
+$("prep").addEventListener("click", async () => {
+  const url = $("repo").value.trim();
+  if (!url) return setStatus("paste a repo URL first");
+  setStatus("cloning…", true);
+  $("prep").disabled = true;
+  const { ok, data } = await post("/api/prepare", { url });
+  $("prep").disabled = false;
+  if (!ok) return setStatus(`clone failed: ${data.error || "unknown"}`);
+  currentRepo = data.path;
+  setStatus(data.cloned ? `cloned ${data.slug}` : `already cloned: ${data.slug}`);
+});
+
+$("ask").addEventListener("click", async () => {
+  const question = $("q").value.trim();
+  const repo = currentRepo || $("repo").value.trim();
+  if (!question) return setStatus("ask something");
+  if (!repo) return setStatus("paste a repo URL or path first");
+
+  $("ask").disabled = true;
+  $("answer").classList.add("on");
+  $("s-time").textContent = "–";
+  $("s-turns").textContent = "–";
+  $("s-tools").textContent = "–";
+  $("s-tps").textContent = "–";
+  $("s-body").innerHTML = "";
+  $("s-tools-list").innerHTML = "";
+  setStatus("reading…", true);
+
+  const t0 = performance.now();
+  const tick = setInterval(() => {
+    $("s-time").textContent = ((performance.now() - t0) / 1000).toFixed(1) + "s";
+  }, 100);
+
+  const { data } = await post("/api/ask", { repo, question });
+  clearInterval(tick);
+  $("ask").disabled = false;
+
+  $("s-time").textContent = (data.elapsedMs / 1000).toFixed(2) + "s";
+  $("s-turns").textContent = data.assistantTurns ?? "–";
+  $("s-tools").textContent = data.toolSummary?.calls ?? "–";
+  if (data.usage && data.elapsedMs) {
+    $("s-tps").textContent = Math.round(data.usage.output / (data.elapsedMs / 1000));
+  }
+  (data.toolSummary?.tools || []).forEach((name) => {
+    const el = document.createElement("span");
+    el.className = "chip";
+    el.textContent = name;
+    $("s-tools-list").appendChild(el);
+  });
+
+  if (data.error) {
+    $("s-body").innerHTML = `<span class="err">${render(data.error)}</span>`;
+    setStatus("failed");
+  } else {
+    $("s-body").innerHTML = render(data.final || "(empty response)");
+    setStatus(`${data.model} · ${data.usage?.output ?? 0} tokens out`);
+  }
+});
+</script>
+</body>
+</html>
