@@ -23,6 +23,8 @@ If `kimi-k3.1-pro` is **not** in that list, that is expected before approval. `g
 
 ```bash
 cd ~/Desktop/home/kimi-hackathon
+gh auth status                     # active account must be ihateSAS, not pyrrhonic
+# if it is the wrong one: gh auth switch --user ihateSAS
 git pull
 export CEREBRAS_API_KEY=csk-...
 
