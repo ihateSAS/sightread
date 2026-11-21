@@ -11,7 +11,7 @@ import os
 SRC = "/Users/djh/Desktop/home/.cloud-attachments/debfa3747bd195ca7ccc1532a4ed335948e9e48665d2b5dfda207fa60e19ba61.webp"
 LOGO = "/Users/djh/Desktop/home/kimi-hackathon/logo/sightread-icon.png"
 OUT = "/Users/djh/Desktop/home/kimi-hackathon/app/public/bg.webp"
-OUT_ALT = "/Users/djh/Desktop/home/kimi-hackathon/app/public/bg.jpg"
+OUT_ALT = "/Users/djh/Desktop/home/kimi-hackathon/app/public/bg@2x.webp"
 
 
 def sample_accent(path):
@@ -43,8 +43,10 @@ left = int(W * 0.10)
 top = int(H * 0.16)
 img = img.crop((left, top, left + cw, top + ch))
 
-# 3. target 16:9 at 2x for crispness on retina
-TW, TH = 2560, 1440
+# 3. target 4K 16:9. The source is 1600x800, so the extra pixels are
+# interpolated — but the transform is soft by design, so it holds up.
+TW, TH = 3840, 2160
+BLUR = 2.4  # scaled with the canvas so the look is identical
 img = ImageOps.fit(img, (TW, TH), method=Image.LANCZOS, centering=(0.55, 0.62))
 
 # 4. blue duotone: kill the original colour entirely
@@ -63,7 +65,7 @@ img = Image.blend(img, ImageChops.multiply(img, tint), 0.18)
 img = Image.eval(img, lambda v: int(255 * ((v / 255) ** 1.55)))
 
 # 6. soften — background must never compete with the type
-img = img.filter(ImageFilter.GaussianBlur(1.6))
+img = img.filter(ImageFilter.GaussianBlur(BLUR))
 
 # 7. darken toward the edges so the centre column stays readable
 vig = Image.radial_gradient("L").resize((TW, TH))
@@ -75,7 +77,7 @@ img = Image.eval(img, lambda v: int(v * 0.78))
 
 # 9. fine grain so gradients don't band in video compression
 # noise is centred on 128, so offset by -128: the grain adds ~0, not mid-grey
-noise = Image.effect_noise((TW, TH), 5).convert("L")
+noise = Image.effect_noise((TW, TH), 4).convert("L")
 noise_rgb = Image.merge("RGB", (noise, noise, noise))
 img = ImageChops.add(img, noise_rgb, scale=1.0, offset=-128)
 
@@ -88,7 +90,8 @@ fade = fade.resize((TW, TH))
 img = Image.composite(img, Image.new("RGB", (TW, TH), (4, 6, 10)), fade)
 
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
-img.save(OUT, "WEBP", quality=82, method=6)
-img.save(OUT_ALT, "JPEG", quality=82, optimize=True, progressive=True)
-print("wrote", OUT, os.path.getsize(OUT) // 1024, "KB")
-print("wrote", OUT_ALT, os.path.getsize(OUT_ALT) // 1024, "KB")
+# two renditions: 1920 for everyone, 3840 for large/retina screens
+img.resize((1920, 1080), Image.LANCZOS).save(OUT, "WEBP", quality=86, method=6)
+img.save(OUT_ALT, "WEBP", quality=88, method=6)
+print("wrote", OUT, os.path.getsize(OUT) // 1024, "KB  (1920x1080)")
+print("wrote", OUT_ALT, os.path.getsize(OUT_ALT) // 1024, "KB  (3840x2160)")
