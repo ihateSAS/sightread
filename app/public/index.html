@@ -65,14 +65,12 @@
 
   /* ---- backdrop ---- */
   .backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
-  .backdrop img, .backdrop video {
+  .backdrop img {
     position: absolute; inset: 0;
     width: 100%; height: 100%;
     object-fit: cover; object-position: 58% 38%;
     z-index: 0;
   }
-  .backdrop video { z-index: 1; }
-  @media (prefers-reduced-motion: reduce) { .backdrop video { display: none; } }
   .backdrop::after {
     content: ""; position: absolute; inset: 0; z-index: 2;
     background:
@@ -260,9 +258,6 @@
     color: #a9b2c1; margin: 0; max-width: 64ch;
     font-size: 13.5px; line-height: 1.5;
   }
-  /* the method paragraph is explanation, not product; the console below is
-     the first frame */
-  .method { display: none; }
 
   /* ---- ask console ---- */
   .console {
@@ -638,7 +633,6 @@
   .impact-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .impact-meta { font: 500 11px/1.4 var(--mono); color: var(--dim); letter-spacing: 0.05em; }
   .impact-sub { margin: 6px 0 0; font: 400 12.5px/1.5 var(--sans); color: var(--dim); }
-  .method { margin: 16px 0 0; font: 400 13px/1.7 var(--sans); color: var(--dim); max-width: 62ch; }
   .evidence {
     display: inline-flex; align-items: center; gap: 7px;
     font: 500 12px/1 var(--sans); letter-spacing: normal; text-transform: none;
@@ -741,10 +735,6 @@
         Ask a repository a question. Change answers point at the exact file and line evidence
         behind them. Ask what a change would break and it answers twice, once with the parsed imports and once without
         them, then counts what the model missed.
-      </p>
-      <p class="method">
-        Sightread clones the repo and parses the import graph locally. The server sends the model only the scoped evidence
-        a question resolves to, on Cerebras, and the page links the cited lines. No embeddings, no index, and no whole-repo paste.
       </p>
     </header>
 
@@ -998,7 +988,11 @@ document.addEventListener("click", (e) => {
 });
 
 // ---- change impact ----
+// Only an explicit user pick counts as the ask target (the server lets the
+// panel pick override the file named in the question). Ambient roaming is
+// display only, so it never writes this.
 let selectedImpactPath = null;
+let displayedImpactPath = null;
 // The graph roams on its own (like agents wandering a world) so the first frame
 // is alive muted: it cycles the hot files every few seconds until the user
 // clicks a file, asks, or clones, and then it stops and stays put.
@@ -1023,7 +1017,7 @@ function startImpactCycle() {
   impactCycleTimer = setInterval(() => {
     if (!$("view-ask").classList.contains("active")) return;
     impactCycleIndex = (impactCycleIndex + 1) % impactHotList.length;
-    loadImpact(impactHotList[impactCycleIndex].path);
+    loadImpact(impactHotList[impactCycleIndex].path, true);
   }, 2800);
 }
 
@@ -1034,7 +1028,7 @@ function renderHot(hot) {
   impactHotList.forEach((h) => {
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "chip-btn" + (h.path === selectedImpactPath ? " active" : "");
+    b.className = "chip-btn" + (h.path === displayedImpactPath ? " active" : "");
     b.textContent = `${h.path}  ${h.dependents}`;
     b.addEventListener("click", () => {
       takeImpactOver();
@@ -1067,8 +1061,9 @@ function renderImpactBody(data) {
     `</p>` + rows.join("");
 }
 
-async function loadImpact(targetPath) {
-  selectedImpactPath = targetPath || null;
+async function loadImpact(targetPath, auto = false) {
+  if (!auto) selectedImpactPath = targetPath || null;
+  displayedImpactPath = targetPath || null;
   const params = new URLSearchParams();
   if (currentRepo) params.set("repo", currentRepo);
   if (targetPath) params.set("path", targetPath);
@@ -1086,7 +1081,7 @@ async function loadImpact(targetPath) {
     // first frame shows a real graph, not an empty panel: open the hottest file
     if (impactAuto && impactHotList.length) {
       impactCycleIndex = 0;
-      loadImpact(impactHotList[0].path);
+      loadImpact(impactHotList[0].path, true);
     } else {
       out.innerHTML = "";
     }

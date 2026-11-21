@@ -92,14 +92,23 @@ first, never the blind-spot count.
    `kimi-k3.1-pro cerebras` once capacity lands. Close the popover. The Speed Race
    panel used in the 0:44 beat is the **Speed Race tab on this same page**
    (`:8787`), not the standalone `node race/server.mjs` on `:8788`.
+   The page layout is two columns: question form on the left, Change impact on
+   the right. On load the impact graph **roams** on its own, cycling the hot
+   files every few seconds next to a pulsing green dot. That motion is the
+   first frame. It stops the moment you click a hot file chip, press **Ask**,
+   or type a repo URL (dot greys out), and it never changes what a question
+   asks about: ambient roaming cannot select the ask target.
 2. Get Express on screen. On a fresh clone there is no pre-loaded Express chip:
    type `expressjs/express` into the **repository** field and click **Clone repo**.
    The server clones it into `repos/` and parses the graph. The existing Express
    chip appears only after a clone has happened once. Then ask *"If I change
    lib/application.js, what breaks?"* and let both answers finish, the graph answer
-   and the unaided run under it. Note the coverage count, because it is the number
-   you will point at. **Do not reload the page after this.** The populated panel is
-   what the recording opens on.
+   and the unaided run under it. Pressing Ask stops the roaming (grey dot) and the
+   impact panel locks onto the asked file's graph (`application.js`, 1 direct,
+   99 indirect). Note the coverage count, because it is the number you will point
+   at. **Do not reload the page after this.** The populated panel is what the
+   recording opens on, and pressing Ask in the filmed take keeps the graph
+   parked on the same file.
 3. **Wait 60 seconds after that pre-flight pair before recording.** The public
    Cerebras key allows 30,000 tokens/minute, and a pre-flight pair plus a filmed
    pair inside the same minute will rate limit the take you are shooting. The
@@ -119,9 +128,9 @@ first, never the blind-spot count.
 
 | Clock | On screen | Overlay (burned in) | Say | You do |
 |---|---|---|---|---|
-| **0:00–0:06** | Impact panel already populated, summary reading `application.js · high risk · 1 direct, 99 indirect · showing 14 of 100`; toggle reads `paired run on` | Title card top-left: `SIGHTREAD` / `Change one file. 100 files downstream.` Progress bar 0%. Step `1 / 5`. | "This is Express. Change one file, and a hundred others sit downstream." | Nothing. Let the number sit still for a beat before you talk. |
-| **0:06–0:12** | Repo selected, impact header reading `142 files · 160 imports parsed` | Callout box on the header count: `142 files, 160 imports parsed. Computed locally, before the model runs.` Progress bar 20%. Step `2 / 5`. | "Sightread parsed 142 files and 160 imports before the model read a single one." | Point at the count, then at the hot chips. |
-| **0:12–0:24** | Question submitted: *If I change lib/application.js, what breaks?* Graph answer appears, then `Without the graph` starts filling underneath | Callout on the header chip: `Answering model: <chip text>. Streaming from Cerebras.` Live timer readout top-right counting up from 0:00. Step `3 / 5`. | "Ask it once and it answers twice. First with the parsed graph in the prompt." | Submit at 0:12. Let the first answer land without narrating the file list. |
+| **0:00–0:06** | First frame: left column is the console with `paired run on`, right column is the impact panel already populated, summary reading `application.js · high risk · 1 direct, 99 indirect · showing 14 of 100` | Title card top-left: `SIGHTREAD` / `Change one file. 100 files downstream.` Progress bar 0%. Step `1 / 5`. | "This is Express. Change one file, and a hundred others sit downstream." | Nothing. Let the number sit still for a beat before you talk. |
+| **0:06–0:12** | Repo selected, impact header in the right column reading `142 files · 160 imports parsed` | Callout box on the header count: `142 files, 160 imports parsed. Computed locally, before the model runs.` Progress bar 20%. Step `2 / 5`. | "Sightread parsed 142 files and 160 imports before the model read a single one." | Point at the count, then at the hot chips. |
+| **0:12–0:24** | Question submitted from the left column: *If I change lib/application.js, what breaks?* Pressing Ask stops the roaming (dot greys). Graph answer appears below, then `Without the graph` starts filling underneath | Callout on the header chip: `Answering model: <chip text>. Streaming from Cerebras.` Live timer readout top-right counting up from 0:00. Step `3 / 5`. | "Ask it once and it answers twice. First with the parsed graph in the prompt." | Submit at 0:12. Let the first answer land without narrating the file list. |
 | **0:24–0:36** | Blind spot pane filled: `N of 100 downstream files named by the model alone · M with the graph`, plus the unaided answer | Callout box on the count, large type: `Model alone: N of 100. With the graph: M of 100.` Progress bar 65%. Step `4 / 5`. | "Then the same model with no graph. That count is how many of the graph's hundred it found by itself." | Point at the count, then let the unaided text sit. Read only numbers on screen. |
 | **0:36–0:44** | Impact panel: `1 direct, 99 indirect · showing 14 of 100`; first row `lib/express.js` with `imports it · line 18`; rows tagged `depth 2`, `depth 3` | Callout with pointer line on the first row: `lib/express.js:18. A real import line you can open.` | "Every one of those edges is a parsed import you can open. The model wrote the sentence. The graph wrote the list." | Scroll slowly and stop on a `depth 3` row. |
 | **0:44–0:53** | Race panel, `1..1000 TPS Test` preset, 600 tokens, both providers streaming | Callout on the race timers: `Same model, same prompt. Timed from the same start.` Progress bar 85%. | "Same model, same prompt, two providers, timed from the same start." | At 0:45 click the `1..1000 TPS Test` preset, then Start Race. The fresh verified run was 0.41s vs 2.55s; say only what the panel shows. |
@@ -153,6 +162,14 @@ first, never the blind-spot count.
   asking which provider answered.
 - One take per beat is fine, but the capture stays continuous underneath the
   overlays. Stitch only if the join is invisible at 0:13 and 0:40.
+- The roaming graph is intentional motion for the opening frame. Do not click a
+  hot file chip during the take; any click, Ask press, or repo typing stops the
+  roaming and greys the dot. If the panel has parked on the wrong file before
+  you press record, press Ask as part of the pre-flight and let it lock onto
+  the asked file instead of clicking chips to steer it.
+- Record at a desktop width above 860 CSS pixels (1440 at 100 percent, or
+  110 percent zoom on a wider screen). Below that the two columns stack and the
+  first frame stops showing the product side by side.
 
 ## Reddit (r/cerebras)
 
@@ -257,6 +274,7 @@ Everything above this section is checked against the repo as it exists on `main`
 ## Pre-post checklist
 
 - [ ] Video is ≤60s (hard cap), opens with the result, not a logo
+- [ ] First frame is side by side (console left, impact right) at desktop width, roaming graph visible before Ask, grey dot after
 - [ ] Overlays burned in on every beat: title card, step counter, progress bar, callouts, live timer; story follows muted
 - [ ] Side-by-side against a GPU provider is visible, with real timers
 - [ ] No API key, email, notification, or personal tab anywhere in frame
