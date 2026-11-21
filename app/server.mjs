@@ -36,8 +36,10 @@ const graphCache = new Map();
 
 // A question only earns a graph lookup when it is about change. Asking how
 // something works stays a plain read; asking what a change breaks gets evidence.
+// Verbs that mean "this file is the subject of a change or a usage question".
+// Broad on purpose: the resolved path is the real gate, not the word.
 const CHANGE_INTENT =
-  /\b(break|breaks|breaking|broke|impact|dependents?|depends on|who (?:uses|calls|imports)|affect|affects|safe to (?:change|edit|delete|remove)|refactor|downstream|callers?|ripple)\b/i;
+  /\b(break\w*|broke\w*|impact\w*|depend\w*|(?:uses|calls|imports|references)|affect\w*|safe to (?:change|edit|delete|remove)|refactor\w*|downstream|callers?|ripple\w*|delet\w*|remov\w*|renam\w*|mov(?:e|es|ing)|touch(?:es|ing)?|edit(?:s|ing)?|modif\w*|chang(?:e|es|ing)|replac\w*|extract(?:s|ing)?|inlin(?:e|es|ing)|drop(?:s|ping)?)\b/i;
 // Hubs are only ever offered to a question that asks for them by name. A stray
 // change verb is not a request for a list of the repository's busiest files.
 const HOTSPOT_INTENT =

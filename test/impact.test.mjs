@@ -66,6 +66,25 @@ test("a change question resolves to the file it names", async () => {
   }
 });
 
+test("usage and deletion questions count as change intent", async () => {
+  const root = fixture();
+  try {
+    for (const q of [
+      "what calls lib/b.js?",
+      "what uses lib/b.js",
+      "if I delete lib/b.js what happens?",
+      "who imports lib/b.js",
+      "is it safe to remove lib/b.js",
+    ]) {
+      const ev = await impactEvidence(root, q, null);
+      assert.equal(ev?.mode, "impact", `expected an impact list for: ${q}`);
+      assert.equal(ev.target.path, "lib/b.js");
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("only a resolved file gets an impact list injected", async () => {
   const root = fixture();
   try {
