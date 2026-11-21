@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sightread — race</title>
+<style>
+  :root {
+    --bg: #08090b;
+    --panel: #0f1114;
+    --line: #1e2126;
+    --text: #e9ebee;
+    --dim: #7f868f;
+    --accent: #d7ff3e;
+    --other: #7aa2ff;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text); min-height: 100vh;
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+  }
+  .wrap { max-width: 1440px; margin: 0 auto; padding: 26px 26px 30px; display: flex; flex-direction: column; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+  .kicker { font: 11px/1 var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; }
+  .controls { display: flex; gap: 8px; margin-left: auto; align-items: center; }
+  input[type=number] { width: 82px; }
+  input, textarea {
+    background: var(--panel); border: 1px solid var(--line); color: var(--text);
+    border-radius: 8px; padding: 9px 11px; font: inherit; outline: none;
+  }
+  textarea { width: 100%; resize: none; font-family: var(--mono); font-size: 13px; line-height: 1.5; }
+  button {
+    background: var(--accent); color: #08090b; border: 0; border-radius: 8px;
+    padding: 10px 18px; font-weight: 650; font-size: 14px; cursor: pointer;
+  }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .banner {
+    font: 12px/1.4 var(--mono); color: var(--dim); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 12px; margin-bottom: 14px;
+  }
+  .banner b { color: var(--accent); font-weight: 600; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; flex: 1; }
+  .pane {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    display: flex; flex-direction: column; overflow: hidden; min-height: 0;
+  }
+  .pane.c { border-top: 2px solid var(--accent); }
+  .pane.o { border-top: 2px solid var(--other); }
+  .pane-head {
+    display: flex; align-items: baseline; gap: 10px; padding: 13px 16px;
+    border-bottom: 1px solid var(--line); flex-wrap: wrap;
+  }
+  .pane-name { font-weight: 650; font-size: 15px; }
+  .pane.c .pane-name { color: var(--accent); }
+  .pane.o .pane-name { color: var(--other); }
+  .pane-model { font: 11px/1 var(--mono); color: var(--dim); }
+  .clock { margin-left: auto; font: 600 22px/1 var(--mono); letter-spacing: -0.03em; }
+  .stats { display: flex; gap: 18px; padding: 11px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .stat b { font: 600 16px/1.2 var(--mono); }
+  .stat span { font: 9px/1 var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-top: 3px; }
+  .out {
+    flex: 1; overflow: hidden; padding: 14px 16px; font-family: var(--mono);
+    font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; color: #cfd4da;
+    min-height: 0; position: relative;
+  }
+  .out.fade::after {
+    content: ""; position: absolute; inset: auto 0 0 0; height: 60px;
+    background: linear-gradient(transparent, var(--panel));
+  }
+  .stub { color: var(--dim); font-size: 13px; line-height: 1.7; }
+  .stub code { color: var(--other); font-family: var(--mono); font-size: 12px; }
+  .err { color: #ff8f7a; font-size: 12px; white-space: pre-wrap; }
+  .winner { text-align: center; font: 600 15px/1 var(--mono); padding: 14px 0 0; color: var(--accent); }
+  .winner.muted { color: var(--dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="kicker">Sightread</span>
+    <h1>Same model. Same prompt. Two kinds of silicon.</h1>
+    <div class="controls">
+      <input id="max" type="number" min="16" max="8000" value="600" title="max tokens" />
+      <button id="go">Race</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner">checking providers…</div>
+
+  <textarea id="prompt" rows="3" spellcheck="false">Write a Python module that parses a CSV file into typed records, with a validate() function and clear error messages. Output only code.</textarea>
+
+  <div style="height: 14px"></div>
+
+  <div class="grid">
+    <section class="pane c">
+      <div class="pane-head">
+        <span class="pane-name">Cerebras</span>
+        <span class="pane-model" id="m-c">—</span>
+        <span class="clock" id="t-c">0.00s</span>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="ttft-c">–</b><span>first token</span></div>
+        <div class="stat"><b id="tok-c">–</b><span>tokens</span></div>
+        <div class="stat"><b id="tps-c">–</b><span>tok/s</span></div>
+      </div>
+      <div class="out fade" id="out-c"><span class="stub">press Race</span></div>
+    </section>
+
+    <section class="pane o">
+      <div class="pane-head">
+        <span class="pane-name">OpenRouter</span>
+        <span class="pane-model" id="m-o">—</span>
+        <span class="clock" id="t-o">0.00s</span>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="ttft-o">–</b><span>first token</span></div>
+        <div class="stat"><b id="tok-o">–</b><span>tokens</span></div>
+        <div class="stat"><b id="tps-o">–</b><span>tok/s</span></div>
+      </div>
+      <div class="out fade" id="out-o"><span class="stub">press Race</span></div>
+    </section>
+  </div>
+
+  <div class="winner" id="winner"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const SIDES = { cerebras: "c", openrouter: "o" };
+const state = {};           // side -> {t0, running, textEl, ...}
+let raf = null;
+
+function fmt(ms) { return (ms / 1000).toFixed(2) + "s"; }
+
+function paintClocks() {
+  const now = performance.now();
+  for (const side of Object.keys(SIDES)) {
+    const s = state[side];
+    if (!s || !s.running) continue;
+    $("t-" + SIDES[side]).textContent = fmt(now - s.t0);
+  }
+  raf = requestAnimationFrame(paintClocks);
+}
+
+function resetPanes() {
+  for (const side of Object.keys(SIDES)) {
+    const k = SIDES[side];
+    $("out-" + k).innerHTML = "";
+    $("t-" + k).textContent = "0.00s";
+    $("ttft-" + k).textContent = "–";
+    $("tok-" + k).textContent = "–";
+    $("tps-" + k).textContent = "–";
+    state[side] = { t0: performance.now(), running: true, tokens: null, chunks: 0 };
+  }
+  $("winner").textContent = "";
+  $("winner").className = "winner";
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(paintClocks);
+}
+
+async function loadState() {
+  const s = await fetch("/api/state").then((r) => r.json()).catch(() => null);
+  if (!s) return;
+  $("m-c").textContent = s.cerebras.model;
+  $("m-o").textContent = s.openrouter.model;
+  const b = $("banner");
+  if (s.cerebras.ready && s.openrouter.ready) {
+    b.innerHTML = `both providers live — <b>${s.cerebras.model}</b> vs <b>${s.openrouter.model}</b>`;
+  } else if (s.cerebras.ready && !s.openrouter.ready) {
+    b.innerHTML = `Cerebras live · OpenRouter <b>not configured</b> — right pane will show as a stub. Add <code>OPENROUTER_API_KEY</code> to record a real race.`;
+  } else {
+    b.innerHTML = `waiting on keys — set <code>CEREBRAS_API_KEY</code>${s.openrouter.ready ? "" : " and <code>OPENROUTER_API_KEY</code>"}`;
+  }
+}
+
+function stub(side, reason) {
+  const k = SIDES[side];
+  $("out-" + k).innerHTML = `<span class="stub">NOT RACING<br>${reason}<br><br>Set the key then restart <code>node race/server.mjs</code>.</span>`;
+  state[side].running = false;
+}
+
+function handle(ev) {
+  const k = SIDES[ev.side];
+
+  if (ev.event === "delta") {
+    const el = $("out-" + k);
+    el.insertAdjacentText("beforeend", ev.text);
+    el.scrollTop = el.scrollHeight;
+    return;
+  }
+  if (ev.event === "skip") { stub(ev.side, ev.reason); return; }
+  if (ev.event === "error") {
+    $("out-" + k).innerHTML = `<span class="err">${ev.reason}</span>`;
+    state[ev.side].running = false;
+    return;
+  }
+  if (ev.event === "done") {
+    state[ev.side].running = false;
+    state[ev.side].done = ev;
+    $("t-" + k).textContent = fmt(ev.totalMs);
+    $("ttft-" + k).textContent = ev.firstTokenMs == null ? "–" : fmt(ev.firstTokenMs);
+    $("tok-" + k).textContent = ev.exact ? ev.tokens : "≈" + ev.chunks;
+    $("tps-" + k).textContent = ev.tps == null ? "–" : ev.tps.toFixed(0);
+    judge();
+  }
+}
+
+function judge() {
+  const c = state.cerebras.done;
+  const o = state.openrouter.done;
+  const w = $("winner");
+  if (!c || !o) {
+    if (c && !state.openrouter.running && !o) {
+      w.className = "winner muted";
+      w.textContent = `unopposed — Cerebras answered in ${fmt(c.totalMs)}`;
+    }
+    return;
+  }
+  const ratio = (o.totalMs / c.totalMs).toFixed(1);
+  w.className = "winner";
+  w.textContent = `Cerebras ${fmt(c.totalMs)} · OpenRouter ${fmt(o.totalMs)} · ${ratio}× faster`;
+}
+
+$("go").addEventListener("click", async () => {
+  $("go").disabled = true;
+  resetPanes();
+
+  const res = await fetch("/api/race", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ prompt: $("prompt").value, maxTokens: Number($("max").value) }),
+  });
+
+  if (!res.ok || !res.body) {
+    $("banner").textContent = "race failed: " + res.status;
+    $("go").disabled = false;
+    return;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, i).trim();
+      buf = buf.slice(i + 1);
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (!payload) continue;
+      let ev;
+      try { ev = JSON.parse(payload); } catch { continue; }
+      if (ev.event === "end") { state.cerebras.running = false; state.openrouter.running = false; }
+      else handle(ev);
+    }
+  }
+
+  cancelAnimationFrame(raf);
+  judge();
+  $("go").disabled = false;
+});
+
+loadState();
+</script>
+</body>
+</html>
