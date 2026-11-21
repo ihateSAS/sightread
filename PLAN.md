@@ -1,5 +1,10 @@
 # Cerebras × Kimi K3.1 Pro × OpenClaw — 24h Hackathon Plan
 
+> **Historical plan, not recording instructions.** This was written before the build
+> and is kept for context. The current product streams Ask straight from Cerebras
+> (see `README.md`), and the authoritative video script and submission copy are in
+> `SUBMISSION.md`. Where this file disagrees with those two, they win.
+
 **Event:** Sat Nov 21, 10:00 AM PT → Sun Nov 22, 10:00 AM PT (online, Cerebras Discord, `#kimi-k3.1-pro-hackathon`)
 **Prize pool:** $5000 — 3 × $1000 (top organic impressions on X) · 1 × $1000 (top upvotes on r/cerebras) · $1000 (fastest TPS prompt)
 **Non-negotiable requirement:** you must use the **OpenClaw harness**, with **Kimi K3.1 Pro on Cerebras** as a central component. Not "we used an OpenAI-compatible endpoint" — the OpenClaw agent loop has to be in the product.

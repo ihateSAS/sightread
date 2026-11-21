@@ -1,6 +1,10 @@
 # Saturday Runbook
 
-All times **PT**. Deadline is Sun 10:00 AM PT. Two irreversible things: the Friday form, and the submission links.
+> **Superseded.** This was the Saturday build plan. The demo Ask path now streams
+> straight from Cerebras, the gateway instructions below no longer apply, and the
+> recording checklist at the bottom contradicts the current script. Do not record
+> from this file. The authoritative recording and submission instructions are in
+> `SUBMISSION.md`; the architecture explanation is in `README.md`.
 
 ---
 

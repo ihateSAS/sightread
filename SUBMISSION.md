@@ -89,12 +89,17 @@ first, never the blind-spot count.
 1. `npm start` (it loads `.env` and streams straight from Cerebras; the gateway
    is no longer on the Ask path). Open `http://localhost:8787`, click the header
    chip, and confirm it reads `qwen-3.8-27b cerebras` today, or
-   `kimi-k3.1-pro cerebras` once capacity lands. Close the popover.
-2. Select **expressjs/express**. Ask *"If I change lib/application.js, what
-   breaks?"* and let both answers finish, the graph answer and the unaided run
-   under it. Note the coverage count, because it is the number you will point at.
-   **Do not reload the page after this.** The populated panel is what the recording
-   opens on.
+   `kimi-k3.1-pro cerebras` once capacity lands. Close the popover. The Speed Race
+   panel used in the 0:44 beat is the **Speed Race tab on this same page**
+   (`:8787`), not the standalone `node race/server.mjs` on `:8788`.
+2. Get Express on screen. On a fresh clone there is no pre-loaded Express chip:
+   type `expressjs/express` into the **repository** field and click **Clone repo**.
+   The server clones it into `repos/` and parses the graph. The existing Express
+   chip appears only after a clone has happened once. Then ask *"If I change
+   lib/application.js, what breaks?"* and let both answers finish, the graph answer
+   and the unaided run under it. Note the coverage count, because it is the number
+   you will point at. **Do not reload the page after this.** The populated panel is
+   what the recording opens on.
 3. **Wait 60 seconds after that pre-flight pair before recording.** The public
    Cerebras key allows 30,000 tokens/minute, and a pre-flight pair plus a filmed
    pair inside the same minute will rate limit the take you are shooting. The
@@ -227,6 +232,27 @@ know what it missed. With the parsed imports: 100. That gap is the whole product
 ```
 
 ---
+
+## User-only steps (nothing else is left to fix)
+
+These are the only items that need the recorder's own hands and accounts.
+Everything above this section is checked against the repo as it exists on `main`.
+
+1. **Record.** Follow the pre-flight and beats above. Total 0:58, hard cap 1:00.
+   Keep the raw take; burn the overlays in the edit.
+2. **Attach the MP4 in both spots**, replacing the two placeholders:
+   - The Discord block under "The required block" (`Demo Video: <attach the 60s MP4>`).
+   - The Reddit body (`60 second demo: <video attached>`).
+   Upload the files natively on Discord, Reddit, and X. Do not paste a YouTube link.
+3. **Make the repo public.** GitHub → Settings → Danger Zone → Change visibility.
+   The README already describes the direct-stream demo path and the OpenClaw
+   fallback accurately; do not edit it for this step.
+4. **Logged-out check.** Open `https://github.com/ihateSAS/sightread` in a private
+   window and confirm it resolves, the README renders, and no `.env` or key is
+   visible in the file list. Then open each post in a logged-out search.
+5. **Post.** Discord track channel(s) with the required block, r/cerebras with
+   flair `Kimi K3.1 Pro Hackathon`, X with the video native and the repo link in
+   the first reply. Sunday ~08:00 PT; reply to every comment Monday.
 
 ## Pre-post checklist
 

@@ -168,10 +168,10 @@ Environment:
 app/server.mjs                  HTTP server, no dependencies (Ask + Race + /api/file)
 app/lib/                        .env loader, safe repo/citation reader, SSE race runner
 app/public/index.html           Ask Repo + Speed Race UI with clickable citations
-race/server.mjs                 standalone side-by-side race server (:8788)
+race/server.mjs                 standalone side-by-side race server (:8788, optional; the demo race is the Speed Race tab on :8787)
 openclaw/kimi-cerebras.patch.json5   provider + model config
 openclaw/skills/                repo-read, kimi-speed-lab
-test/app.test.mjs               node --test suite
+test/*.test.mjs                 node --test suite (28 tests: app, coverage, impact, provider)
 check-cerebras.sh               pre-flight
 PLAN.md                         the 24h plan and scoring strategy
 SUBMISSION.md                   the Discord/Reddit/X submission copy
