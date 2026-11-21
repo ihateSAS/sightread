@@ -46,10 +46,24 @@
 
   .shell { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 0 28px; }
 
-  /* ---- nav: almost no chrome ---- */
-  nav {
+  /* ---- glass bar: blurred, translucent, floats over the page ---- */
+  .bar {
+    position: sticky; top: 12px; z-index: 10;
+    max-width: 1060px; margin: 12px auto 0;
+    width: calc(100% - 32px);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: linear-gradient(180deg, rgba(16, 21, 30, 0.72), rgba(8, 11, 17, 0.56));
+    backdrop-filter: blur(20px) saturate(175%);
+    -webkit-backdrop-filter: blur(20px) saturate(175%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.02),
+      0 24px 60px -34px rgba(0, 0, 0, 0.95);
+  }
+  .bar-inner {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 26px 0 0;
+    gap: 16px; padding: 11px 16px 11px 14px;
   }
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
   .brand img {
@@ -177,17 +191,31 @@
   }
   .err { color: #ff9a86; font-family: var(--mono); font-size: 13px; white-space: pre-wrap; }
 
-  footer {
-    margin-top: 96px; padding: 26px 0 46px;
-    border-top: 1px solid rgba(255,255,255,0.06);
+  /* ---- the same glass, sitting at the foot ---- */
+  .foot {
+    max-width: 1060px; margin: 72px auto 30px;
+    width: calc(100% - 32px);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: linear-gradient(0deg, rgba(20, 26, 38, 0.74), rgba(10, 14, 21, 0.44));
+    backdrop-filter: blur(20px) saturate(170%);
+    -webkit-backdrop-filter: blur(20px) saturate(170%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.075),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.02),
+      0 24px 60px -34px rgba(0, 0, 0, 0.95);
+  }
+  .foot-inner {
     display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-    font: 10.5px/1.6 var(--mono); color: #5f6875; letter-spacing: 0.06em;
+    padding: 16px 20px;
+    font: 10.5px/1.6 var(--mono); color: #6b7482; letter-spacing: 0.06em;
   }
   @media (max-width: 640px) {
     .shell { padding: 0 18px; }
     .console { padding: 16px; border-radius: 14px; }
     .stats { gap: 22px; }
-    nav .stack { display: none; }
+    .bar .stack { display: none; }
+    .bar { top: 8px; margin-top: 8px; }
   }
   @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; transition: none !important; }
@@ -199,12 +227,14 @@
   <img src="/bg.webp?v=6" alt="" aria-hidden="true" decoding="async" fetchpriority="high" />
 </div>
 
-<div class="shell">
-  <nav>
+<header class="bar">
+  <div class="bar-inner">
     <a class="brand" href="/"><img src="/icon.png" alt="" /><span>Sightread</span></a>
     <span class="stack">Kimi K3.1 Pro · Cerebras · OpenClaw</span>
-  </nav>
+  </div>
+</header>
 
+<div class="shell">
   <header class="hero">
     <p class="eyebrow">Reads the repository, not an index</p>
     <h1>Ask a codebase<br /><em>anything.</em></h1>
@@ -241,11 +271,14 @@
     <div class="tools" id="s-tools-list"></div>
   </section>
 
-  <footer>
+</div>
+
+<footer class="foot">
+  <div class="foot-inner">
     <span>MIT · built at the Cerebras × Kimi hackathon</span>
     <span id="foot-note">answers are grounded, not generated from memory</span>
-  </footer>
-</div>
+  </div>
+</footer>
 
 <script>
 const $ = (id) => document.getElementById(id);
