@@ -36,8 +36,15 @@ export async function streamProvider({ model, thinking, prompt, onChunk, timeout
           max_tokens: 4096,
           stream: true,
           stream_options: { include_usage: true },
-          // Qwen otherwise spends a short answer's budget on hidden reasoning.
-          ...(/qwen/i.test(candidate) ? { reasoning_effort: "none" } : {}),
+          // qwen spends its whole budget on hidden reasoning, and Kimi defaults to
+          // a high effort that costs ~850ms of extra first token on a question the
+          // parsed graph already answers. "none" is rejected by Kimi (HTTP 400),
+          // so "low" is the fastest value it accepts.
+          ...(/qwen/i.test(candidate)
+            ? { reasoning_effort: "none" }
+            : /kimi/i.test(candidate)
+              ? { reasoning_effort: "low" }
+              : {}),
         }),
       });
     } catch (e) {

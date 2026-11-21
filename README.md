@@ -179,49 +179,55 @@ SUBMISSION.md                   the Discord/Reddit/X submission copy
 
 ## Status
 
-Working end to end on `cerebras/qwen-3.8-27b` while Kimi capacity is pending:
+Working end to end on `cerebras/moonshotai-kimi-k3.1-pro-trial` (Kimi K3.1 Pro):
 repo clone, parsed impact graph, paired answers, clickable citations, race panel,
-TPS lab. `kimi-k3.1-pro` still returns `model_not_found` until the capacity
-request is processed; the config lists it as the primary and the stream chain
-uses the qwen fallback while it waits. Kimi speed numbers are **pending**, not
-claimed.
+TPS lab. The trial id is what the org catalog grants; bare `kimi-k3.1-pro` and the
+`-test` suffix both return `model_not_found`. Thinking is on by default and
+`reasoning_effort: "none"` is rejected with HTTP 400, so the stream sends `low`.
 
-Fresh verified run on `repos/expressjs__express`, Nov 20, on the qwen fallback
-(configured model `cerebras/kimi-k3.1-pro`, answering model
-`cerebras/qwen-3.8-27b`, transport `cerebras`):
+Fresh verified run on `repos/expressjs__express`, Nov 21, on Kimi K3.1 Pro
+(configured and answering `cerebras/moonshotai-kimi-k3.1-pro-trial`, transport
+`cerebras`):
 
-| Run | First token | Wall | Downstream named |
-|---|---|---|---|
-| With graph | 0.23s | 0.38s | 21 of 100 |
-| Without graph | 0.13s | 1.12s | 3 of 100 |
+| Run | First token | Wall | Output tokens | Downstream named |
+|---|---|---|---|---|
+| With graph | 6.78s | 7.12s | 422 | 21 of 100 |
+| Without graph | 9.10s | 11.05s | 1,605 | 13 of 100 |
 
 The graph resolves `lib/application.js` to 100 downstream files: one direct
 importer at `lib/express.js:18` and 99 indirect across three levels. The aided
 turn answered from that list and named 21 of them. The unaided turn was the same
 model with no graph, asked to make its best guess from what it knows, and named
-3 in this run. Coverage varies per run; the earlier Nov 18 run named 6 alone.
-Coverage comes from `app/public/coverage.mjs`, the module the page imports, so
-the number on screen is the number the tests check. The baseline is a real
-attempt on purpose: handing it only a path invited "I have no file access",
-which would inflate the gap without testing the graph.
+13 in this run. Coverage varies per run; on the qwen fallback the unaided turn
+named 3, because a weaker model guesses worse. Coverage comes from
+`app/public/coverage.mjs`, the module the page imports, so the number on screen
+is the number the tests check. The baseline is a real attempt on purpose:
+handing it only a path invited "I have no file access", which would inflate the
+gap without testing the graph.
 
-Wall time is a range: the first ask after boot also pays the import parse, and
-the unaided turn reaches its first token sooner because it has no graph to wait
-for, then runs longer because it writes the list itself. A third question inside
-the same minute can reach the Cerebras ceiling, so a demo asks one pair and
-pauses before the next ask.
+**The graph is cheaper, not just better.** The aided call sent 479 input tokens
+against the unaided 198 and still finished 3.9s sooner, because rebuilding a
+hundred-file list from memory costs 1,605 output tokens against 422. Speed is
+load-bearing because every change question is answered twice.
+
+**Time is a range, and the trial endpoint is shared.** Nearly all of the first
+token is queue, not compute: the provider's own `time_info` showed a 30.2s queue
+beside a 0.336s completion in a spike, and a 10ms queue beside a 471ms completion
+when quiet. Compute sits near 300 tok/s under event load against 1,746 tok/s for
+`gpt-oss-120b` on the same box. Run `node kimi-queue.mjs` before recording and
+quote what the panel measured, never a number from this file.
 
 Three different numbers live in this project, and they measure different things:
 
 | Path | What it measures | Fresh verified run |
 |---|---|---|
-| Speed Race panel (raw streaming) | first token, then a 600-token answer, same model both sides | 190ms first token, 405ms total, 1,482 tok/s wall |
-| Speed Race panel, OpenRouter lane | the same 600 tokens, same model | 1,188ms first token, 2.55s total, 236 tok/s wall |
-| Ask panel, aided turn | graph parsed locally, then the first streamed chunk | 230ms first token, 384ms total |
-| Ask panel, unaided turn | same model, same question, no graph | 128ms first token, 1.12s total |
+| Speed Race panel (raw streaming) | first token, then a 600-token answer, same model both sides | 190ms first token, 405ms total, 1,482 tok/s wall (qwen) |
+| Speed Race panel, OpenRouter lane | the same 600 tokens, same model | 1,188ms first token, 2.55s total, 236 tok/s wall (qwen) |
+| Ask panel, aided turn | graph parsed locally, then the first streamed chunk | 6.78s first token, 7.12s total (Kimi) |
+| Ask panel, unaided turn | same model, same question, no graph | 9.10s first token, 11.05s total (Kimi) |
 
-Treat these as one fresh run on the qwen fallback, not a promise for every run.
-Kimi numbers remain pending capacity.
+Treat these as one fresh run each, not a promise for every run. The race numbers
+are on the qwen pair; the ask numbers are on Kimi.
 
 The Ask panel streams directly from Cerebras, so its first-token number is the
 first delta the browser received, not an estimate. That is a measured choice:

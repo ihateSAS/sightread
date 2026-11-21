@@ -65,11 +65,15 @@
 
   /* ---- backdrop ---- */
   .backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
-  .backdrop img {
+  .backdrop img, .backdrop video {
     position: absolute; inset: 0;
     width: 100%; height: 100%;
     object-fit: cover; object-position: 58% 38%;
     z-index: 0;
+  }
+  .backdrop video { z-index: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    .backdrop video { display: none; }
   }
   .backdrop::after {
     content: ""; position: absolute; inset: 0; z-index: 2;
@@ -659,11 +663,16 @@
   @media (max-width: 860px) {
     #view-ask.active { display: block; }
     .impact { margin-top: 24px; }
-    .bar-inner { grid-template-columns: auto 1fr; }
-    .brand-sep, .brand-tag { display: none; }
+    .bar-inner { grid-template-columns: auto minmax(0, 1fr); gap: 10px 12px; }
+    .brand-group { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .brand-sep { display: none; }
+    .brand-tag {
+      font-size: 9.5px; letter-spacing: 0.08em;
+      white-space: normal; overflow: visible; text-overflow: clip;
+    }
     .nav-tabs { grid-column: 1 / -1; justify-self: center; display: flex; gap: 30px; }
     .nav-tab { justify-content: center; }
-    .bar-right { grid-column: 2; grid-row: 1; }
+    .bar-right { grid-column: 2; grid-row: 1; align-self: start; padding-top: 9px; }
     .answer-layout.with-proof { grid-template-columns: 1fr; }
     .race-grid { grid-template-columns: 1fr; }
   }
@@ -682,6 +691,9 @@
 <body>
 <div class="backdrop">
   <img src="/bg.webp?v=7" alt="" aria-hidden="true" decoding="async" fetchpriority="high" />
+  <video autoplay muted loop playsinline preload="auto" poster="/bg.webp?v=7" aria-hidden="true" tabindex="-1">
+    <source src="/bg-loop.mp4?v=1" type="video/mp4" />
+  </video>
 </div>
 
 <div class="bar-wrap">
@@ -693,7 +705,7 @@
           <span class="brand-name">Sightread</span>
         </a>
         <span class="brand-sep" aria-hidden="true"></span>
-        <span class="brand-tag">Cerebras · OpenClaw harness</span>
+        <span class="brand-tag">Cerebras × OpenClaw × Kimi</span>
       </div>
 
       <nav class="nav-tabs" aria-label="Workspace mode">
@@ -895,7 +907,7 @@
 
 <footer class="foot">
   <div class="foot-inner">
-    <span>MIT · Sightread · Cerebras × OpenClaw harness</span>
+    <span>MIT · Sightread · Cerebras × OpenClaw × Kimi</span>
     <span>answers cite exact source lines; click any citation to inspect</span>
   </div>
 </footer>
@@ -941,7 +953,19 @@ async function loadHealth() {
   // with a key the turn streams from Cerebras and may use a fallback.
   const modelShown = h.answerModel || h.model;
   const shortModel = (modelShown || "").split("/").pop() || "unknown";
-  $("h-model").textContent = shortModel;
+  // The Cerebras trial id is `moonshotai-kimi-k3.1-pro-trial`, which reads badly
+  // in a header and is infrastructure detail, not the model's name. Display the
+  // product name and keep the exact id on the element and in the popover.
+  const displayName = (leaf) =>
+    /kimi/i.test(leaf)
+      ? "Kimi K3.1 Pro"
+      : /qwen/i.test(leaf)
+        ? "Qwen 3.8 27B"
+        : /gpt-oss/i.test(leaf)
+          ? "GPT OSS 120B"
+          : leaf;
+  $("h-model").textContent = displayName(shortModel);
+  $("h-model").title = modelShown || "";
   $("h-transport").textContent = h.answerTransport || h.effectiveTransport || h.transport || "exec";
   const ready = Boolean(h.keyPresent) && h.openclaw !== "not found";
   $("h-dot").className = "health-dot " + (ready ? "ok" : "warn");

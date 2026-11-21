@@ -61,7 +61,7 @@ test("a missing first model falls through and the winner is named", async (t) =>
   );
 });
 
-test("qwen runs with reasoning off, the other models keep the provider default", async (t) => {
+test("qwen runs with reasoning off and kimi at low effort, others keep the default", async (t) => {
   const provider = await startFakeProvider(({ body }) =>
     body.model === "kimi-k3.1-pro"
       ? { status: 404, body: {} }
@@ -73,7 +73,8 @@ test("qwen runs with reasoning off, the other models keep the provider default",
   await streamProvider({ model: "cerebras/kimi-k3.1-pro", thinking: "low", prompt: "hi" });
 
   const [kimi, qwen] = provider.requests;
-  assert.equal(kimi.body.reasoning_effort, undefined);
+  // Kimi rejects "none" with a 400, so "low" is the floor that still works.
+  assert.equal(kimi.body.reasoning_effort, "low");
   assert.equal(qwen.body.reasoning_effort, "none");
 });
 

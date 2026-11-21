@@ -182,6 +182,12 @@ async function probeCerebrasModel(cfg) {
 // can actually run. The moment Kimi appears there, the page says Kimi.
 let modelListCache = { key: "", at: 0, ids: null };
 
+// A listing is not access. The catalog can advertise a model id that the key
+// still answers 404 for, which would let health claim Kimi while the chain falls
+// through to qwen on every turn. The model that last returned tokens outranks
+// the list: it is observed, not predicted.
+let lastAnsweredModel = null;
+
 async function cerebrasModelIds() {
   // Honour the same base URL as the turn itself, so a stub provider or a
   // gateway deployment resolves models against the host that will serve them.
@@ -217,6 +223,8 @@ async function cerebrasModelIds() {
 
 async function effectiveModel(cfg) {
   if (!/^cerebras\//i.test(cfg.model)) return cfg.model;
+  // Observed beats predicted: once a turn has answered, its model is the truth.
+  if (lastAnsweredModel) return lastAnsweredModel;
   const ids = await cerebrasModelIds();
   if (!Array.isArray(ids)) return cfg.model;
   const leaf = String(cfg.model).split("/").pop();
@@ -710,6 +718,7 @@ export function createAppServer({
               prompt: buildPrompt(prep),
               timeoutMs: ASK_DEADLINE_MS,
             });
+            lastAnsweredModel = out.model;
             return json(res, 200, {
               ok: true,
               final: out.text,
@@ -836,6 +845,8 @@ export function createAppServer({
           });
           phases = out.phases;
           answeredModel = out.model;
+          // Health reads this: the model that actually answered, not the one listed.
+          lastAnsweredModel = out.model;
           send("done", {
             ok: true,
             final: text,

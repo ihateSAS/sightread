@@ -47,19 +47,52 @@ if [ -n "${CEREBRAS_API_KEY:-}" ]; then
     fail=1
   else
     printf '%s\n' "$ids" | sed 's/^/  - /'
-    if printf '%s\n' "$ids" | grep -qx 'kimi-k3.1-pro'; then
-      note "ok: kimi-k3.1-pro is available to your org."
+    # The org-assigned ID is not always the friendly name: the event endpoint is
+    # advertised as moonshotai-kimi-k3.1-pro-test. Match on the substring and use
+    # whatever ID the catalog actually prints.
+    kimi_ids=$(printf '%s\n' "$ids" | grep -i 'kimi' || true)
+    if [ -n "$kimi_ids" ]; then
+      note "ok: kimi is listed for your org:"
+      printf '%s\n' "$kimi_ids" | sed 's/^/      /'
+      note "   -> SIGHTREAD_MODEL=cerebras/$(printf '%s' "$kimi_ids" | head -1)"
     else
-      note "NOTE: kimi-k3.1-pro is not in your list yet."
-      note "      Expected if your capacity request (due Fri Nov 20, 7:00 PM PT) has not"
-      note "      been processed. Use gpt-oss-120b to prove the harness in the meantime,"
-      note "      and re-run this at kickoff. If the org-assigned endpoint ID differs,"
-      note "      use the ID printed above in the config."
+      note "NOTE: no kimi id in your list yet."
+      note "      Expected before capacity lands. Re-run this at kickoff; the token"
+      note "      table below is the part that tells you if it is live."
     fi
   fi
 fi
 
-section "3. Raw API speed (server-side tok/s)"
+section "3. Does kimi actually answer? (listing is not access)"
+if [ -n "${CEREBRAS_API_KEY:-}" ]; then
+  kimi_live=0
+  for cand in ${SIGHTREAD_MODEL:-} ${CEREBRAS_KIMI_CANDIDATES:-moonshotai-kimi-k3.1-pro-test moonshotai-kimi-k3.1-pro kimi-k3.1-pro kimi-k2-thinking}; do
+    cand=${cand#cerebras/}
+    [ -z "$cand" ] && continue
+    t0=$(date +%s%N)
+    code=$(curl -sS --max-time 30 -o /tmp/kimi-probe.json -w '%{http_code}' \
+      https://api.cerebras.ai/v1/chat/completions \
+      -H "Authorization: Bearer $CEREBRAS_API_KEY" \
+      -H 'Content-Type: application/json' \
+      -d "{\"model\":\"$cand\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with exactly: READY\"}],\"max_tokens\":16}")
+    ms=$(( ($(date +%s%N) - t0) / 1000000 ))
+    if [ "$code" = "200" ]; then
+      note "  LIVE  $cand  (HTTP 200, ${ms}ms)"
+      note "        -> SIGHTREAD_MODEL=cerebras/$cand"
+      kimi_live=1
+    else
+      note "  --    $cand  (HTTP $code: $(head -c 120 /tmp/kimi-probe.json 2>/dev/null))"
+    fi
+  done
+  rm -f /tmp/kimi-probe.json
+  if [ "$kimi_live" = "0" ]; then
+    note "NOTE: no kimi id answered. The app stays on the qwen fallback and says so"
+    note "      on screen, which is correct, not a failure. Re-run when the limit"
+    note "      key lands."
+  fi
+fi
+
+section "4. Raw API speed (server-side tok/s)"
 if [ -n "${CEREBRAS_API_KEY:-}" ]; then
   model="${CEREBRAS_SMOKE_MODEL:-gpt-oss-120b}"
   note "measuring $model ..."
@@ -67,7 +100,7 @@ if [ -n "${CEREBRAS_API_KEY:-}" ]; then
     --model "$model" --reasoning low --max-tokens 1200 --runs 2 || fail=1
 fi
 
-section "4. OpenClaw harness"
+section "5. OpenClaw harness"
 if command -v openclaw >/dev/null 2>&1; then
   note "ok: $(openclaw --version 2>&1 | head -1)"
   note "-- configured models for cerebras --"
@@ -80,7 +113,7 @@ else
   fail=1
 fi
 
-section "5. End-to-end agent turn"
+section "6. End-to-end agent turn"
 if command -v openclaw >/dev/null 2>&1 && [ -n "${CEREBRAS_API_KEY:-}" ]; then
   smoke="${CEREBRAS_SMOKE_MODEL:-gpt-oss-120b}"
   case "$smoke" in cerebras/*) ;; *) smoke="cerebras/$smoke" ;; esac
