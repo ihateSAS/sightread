@@ -1,22 +1,29 @@
 # Submission Pack
 
-Fill this in by Saturday 11:00 AM PT — writing the copy is what forces the demo to be clear.
+The copy is written. Only the speed figures stay blank until the Cerebras key is in, and
+nothing gets published with a blank left in it.
 
 ---
 
 ## The required block (paste into the Discord track channel)
 
 ```text
-Project Name: <name>
+Project Name: Sightread
 
-Team Members: @<handle>, @<handle>
+Team Members: @ihateSAS
 
 Project Description:
-<2-4 sentences. What it does, who it's for, and why Cerebras speed is load-bearing —
-not "we used a fast model", but "this interaction is impossible at 40 tok/s because ...".>
+Sightread answers questions about a repository, and for change questions it also
+shows what that change would break. Point it at Express and it parses 142 files and
+160 imports before answering, so "if I change lib/application.js" comes back with a
+computed list of 100 downstream files, starting at lib/express.js line 18, instead of
+a model's guess. Every answer cites file and line, and the import graph is computed
+locally rather than predicted. This is a Cerebras interaction because one OpenClaw
+turn reads files one at a time: at <tok/s> the read finishes in <TTFT>s, where the
+same loop on a slow endpoint stalls long enough that people stop asking.
 
-GitHub Repository: <url>
-Demo Video: <attached or YouTube link>
+GitHub Repository: https://github.com/ihateSAS/sightread
+Demo Video: <attach the 60s MP4>
 ```
 
 Discord gets the **demo video attached or linked**, plus the description. Post it in the channel for each track you want considered.
@@ -73,27 +80,74 @@ on-screen values are known in advance. Total runtime 0:58, two seconds of slack.
 
 ## Reddit (r/cerebras)
 
-- Title: `<Project> — <one concrete outcome> in <N> seconds, on Kimi K3.1 Pro + Cerebras`
+**Title**
+
+```text
+Sightread: change one file in Express, see the 100 files downstream, in <TTFT>s on Kimi K3.1 Pro + Cerebras
+```
+
+**Body**
+
+```text
+I point Sightread at a repo and ask it a question. Every answer cites the file and
+line it came from, which is table stakes. The part I wanted was the other half:
+what breaks if I change this?
+
+On Express it parses 142 files and 160 imports, then resolves a change to
+lib/application.js into 100 downstream files. One direct hit at lib/express.js
+line 18, ninety nine indirect, three levels deep into the examples. That list is
+computed from the import graph, not written by the model, and you can switch the
+graph off in the UI to watch the model answer the same question on its own. The
+difference is the point of the project.
+
+Speed is load-bearing here because the agent reads source files one at a time
+inside a single OpenClaw turn. On Kimi K3.1 Pro via Cerebras the whole scoped read
+and answer lands in <TTFT>s at <tok/s>. The same loop on a slow endpoint is the
+reason people stop asking questions of their codebase.
+
+60 second demo: <video attached>
+Code, MIT: https://github.com/ihateSAS/sightread
+
+Built during the Kimi K3.1 Pro hackathon, using the OpenClaw harness on Cerebras.
+#KimiOnCerebras
+```
+
 - Flair: **Kimi K3.1 Pro Hackathon**
-- Body: description above + video (native upload beats a YouTube link) + repo link + `#KimiOnCerebras`.
+- Upload the video natively; a YouTube link costs you reach.
 - Upvotes count until **Tue 10:00 AM PT**. Reply to every comment; early engagement drives ranking.
 
 ## X
 
-- Post the video natively. No external link in the first post — X suppresses it. Repo goes in a reply.
+- Post the video natively. No external link in the first post, X suppresses it. Repo goes in a reply.
 - Tag `@Cerebras` and `@Kimi_Moonshot`, include `#KimiOnCerebras`.
 - First post Sunday ~08:00 PT. Monday: one follow-up (a different 15s clip, or a reply showing a surprising result).
-- No paid promotion — "organic impressions" only, and paid amplification is disqualifying.
+- No paid promotion: "organic impressions" only, and paid amplification is disqualifying.
 
 Suggested first post:
 
 ```text
-<what it does> in <N> seconds.
+Change one file in Express. Sightread finds 100 files downstream, from the parsed
+imports, not a model guess.
 
-Kimi K3.1 Pro on @Cerebras, driven by the @openclaw agent harness — <one number that
-makes the speed real, e.g. "1,900 tok/s, the whole tool loop in 1.9s">.
+<tok/s> on Kimi K3.1 Pro via @Cerebras, driven by @openclaw.
 
 Built in 24h for #KimiOnCerebras w/ @Kimi_Moonshot
+```
+
+That is 223 characters, so it fits without a paid account. Do not add the repo link
+to it.
+
+First reply (repo lives here, not in the first post):
+
+```text
+Code and the graph parser: https://github.com/ihateSAS/sightread
+```
+
+Follow-up post on Monday, if the first one lands:
+
+```text
+Same question, graph evidence switched off. The model names a few files and cannot
+know what it missed. With the parsed imports: 100. That gap is the whole product.
 ```
 
 ---
