@@ -1462,6 +1462,8 @@ function renderHistory() {
     b.className = "chip-btn";
     b.textContent = item.question.slice(0, 38) + (item.question.length > 38 ? "…" : "");
     b.addEventListener("click", () => {
+      // A pending blind-spot run belongs to the answer that started it.
+      blindspotSeq += 1;
       $("q").value = item.question;
       paintResult(item.data);
     });
