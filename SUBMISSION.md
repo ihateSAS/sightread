@@ -72,10 +72,17 @@ Do not chase it. Sightread is not a multi-agent world and does not evolve skills
 
 ## The 60-second video (script, timed against the clock)
 
+**Direction from InventorBlack (Nov 20):** a raw capture is a good start, but mix
+in overlays to indicate what is happening or progressing, and the cut must be
+**60 seconds or less**. The script below is built for that: raw screen capture
+underneath, burned-in overlays on top, no narration required to follow it.
+X and Reddit autoplay muted, so the overlays carry the story on their own.
+
 The layout and the graph counts below were checked against
 `repos/expressjs__express` on Nov 20. Coverage varies per run, so read that count
 off the screen rather than reciting one from memory. Total runtime 0:58, two
-seconds of slack.
+seconds of slack. Hard cap 1:00; if the export runs long, trim the race beat
+first, never the blind-spot count.
 
 ### Recording pre-flight (5 minutes, before you press record)
 
@@ -95,20 +102,25 @@ seconds of slack.
    from a warm graph.
 4. Zoom the browser to 110 percent. Hide the bookmarks bar and any notification
    banner. No `.env`, no terminal with the key, no Discord in frame.
-5. Start the timer at 0:00 and record the whole viewport. Do not cut between beats;
-   the run has to look continuous.
+5. Start the timer at 0:00 and record the whole viewport as one continuous raw
+   take. Overlays are added in the edit, on top of that take; do not cut the
+   capture itself between beats.
+6. Overlay kit ready before you start: lower-third title card, step counter
+   (1/5 to 5/5), progress bar, callout boxes with a thin pointer line, and a
+   live timer readout. Same font and colour across every overlay, no glass,
+   no bubbles, no pills. Plain type, top-left, high contrast.
 
 ### The beats
 
-| Clock | On screen | Say | You do |
-|---|---|---|---|
-| **0:00–0:06** | Impact panel already populated, summary reading `application.js · high risk · 1 direct, 99 indirect · showing 14 of 100`; toggle reads `paired run on` | "This is Express. Change one file, and a hundred others sit downstream." | Nothing. Let the number sit still for a beat before you talk. |
-| **0:06–0:12** | Repo selected, impact header reading `142 files · 160 imports parsed` | "Sightread parsed 142 files and 160 imports before the model read a single one." | Point at the count, then at the hot chips. |
-| **0:12–0:24** | Question submitted: *If I change lib/application.js, what breaks?* Graph answer appears, then `Without the graph` starts filling underneath | "Ask it once and it answers twice. First with the parsed graph in the prompt." | Submit at 0:12. Let the first answer land without narrating the file list. |
-| **0:24–0:36** | Blind spot pane filled: `N of 100 downstream files named by the model alone · M with the graph`, plus the unaided answer | "Then the same model with no graph. That count is how many of the graph's hundred it found by itself." | Point at the count, then let the unaided text sit. Read only numbers on screen. |
-| **0:36–0:44** | Impact panel: `1 direct, 99 indirect · showing 14 of 100`; first row `lib/express.js` with `imports it · line 18`; rows tagged `depth 2`, `depth 3` | "Every one of those edges is a parsed import you can open. The model wrote the sentence. The graph wrote the list." | Scroll slowly and stop on a `depth 3` row. |
-| **0:44–0:53** | Race panel, `1..1000 TPS Test` preset, 600 tokens, both providers streaming | "Same model, same prompt, two providers, timed from the same start." | At 0:45 click the `1..1000 TPS Test` preset, then Start Race. The fresh verified run was 0.41s vs 2.55s; say only what the panel shows. |
-| **0:53–0:58** | Pull back to the impact panel | "Sightread. Ask your repo, then see what your change breaks." | Stop moving. Repo URL goes in the caption, never spoken. |
+| Clock | On screen | Overlay (burned in) | Say | You do |
+|---|---|---|---|---|
+| **0:00–0:06** | Impact panel already populated, summary reading `application.js · high risk · 1 direct, 99 indirect · showing 14 of 100`; toggle reads `paired run on` | Title card top-left: `SIGHTREAD` / `Change one file. 100 files downstream.` Progress bar 0%. Step `1 / 5`. | "This is Express. Change one file, and a hundred others sit downstream." | Nothing. Let the number sit still for a beat before you talk. |
+| **0:06–0:12** | Repo selected, impact header reading `142 files · 160 imports parsed` | Callout box on the header count: `142 files, 160 imports parsed. Computed locally, before the model runs.` Progress bar 20%. Step `2 / 5`. | "Sightread parsed 142 files and 160 imports before the model read a single one." | Point at the count, then at the hot chips. |
+| **0:12–0:24** | Question submitted: *If I change lib/application.js, what breaks?* Graph answer appears, then `Without the graph` starts filling underneath | Callout on the header chip: `Answering model: <chip text>. Streaming from Cerebras.` Live timer readout top-right counting up from 0:00. Step `3 / 5`. | "Ask it once and it answers twice. First with the parsed graph in the prompt." | Submit at 0:12. Let the first answer land without narrating the file list. |
+| **0:24–0:36** | Blind spot pane filled: `N of 100 downstream files named by the model alone · M with the graph`, plus the unaided answer | Callout box on the count, large type: `Model alone: N of 100. With the graph: M of 100.` Progress bar 65%. Step `4 / 5`. | "Then the same model with no graph. That count is how many of the graph's hundred it found by itself." | Point at the count, then let the unaided text sit. Read only numbers on screen. |
+| **0:36–0:44** | Impact panel: `1 direct, 99 indirect · showing 14 of 100`; first row `lib/express.js` with `imports it · line 18`; rows tagged `depth 2`, `depth 3` | Callout with pointer line on the first row: `lib/express.js:18. A real import line you can open.` | "Every one of those edges is a parsed import you can open. The model wrote the sentence. The graph wrote the list." | Scroll slowly and stop on a `depth 3` row. |
+| **0:44–0:53** | Race panel, `1..1000 TPS Test` preset, 600 tokens, both providers streaming | Callout on the race timers: `Same model, same prompt. Timed from the same start.` Progress bar 85%. | "Same model, same prompt, two providers, timed from the same start." | At 0:45 click the `1..1000 TPS Test` preset, then Start Race. The fresh verified run was 0.41s vs 2.55s; say only what the panel shows. |
+| **0:53–0:58** | Pull back to the impact panel | End card: `Sightread. Ask your repo. See what your change breaks.` Repo URL small underneath. Progress bar 100%. | "Sightread. Ask your repo, then see what your change breaks." | Stop moving. Repo URL goes in the caption and end card, never spoken. |
 
 ### Rules for the edit
 
@@ -125,10 +137,17 @@ seconds of slack.
 - **If the model happens to name a long list**, drop that beat and open on the
   graph instead. Do not let the video imply the model guessed two files when it
   guessed ten.
-- **One take per beat is fine**, but the timer must be continuous. Stitch only if
-  the join is invisible at 0:13 and 0:40.
-- Captions on: X and Reddit autoplay muted, so the first frame has to carry the
-  claim on its own. Burn in `100 files downstream` as the opening caption.
+- Overlays are burned in, not captions alone: title card, step counter, progress
+  bar, callout boxes and a live timer, per the beat table. A muted viewer must
+  be able to follow the whole story from the overlays and the numbers on screen.
+- Overlays annotate only what the frame shows. Never overlay a number the panel
+  did not measure. If the chip reads qwen, the overlay reads qwen; if it reads
+  Kimi, it reads Kimi. No overlay may claim a Kimi figure from an OpenRouter
+  run or any other proxy: the race panel already does the honest same-model
+  comparison on screen, and borrowed speed numbers will not survive a judge
+  asking which provider answered.
+- One take per beat is fine, but the capture stays continuous underneath the
+  overlays. Stitch only if the join is invisible at 0:13 and 0:40.
 
 ## Reddit (r/cerebras)
 
@@ -211,7 +230,8 @@ know what it missed. With the parsed imports: 100. That gap is the whole product
 
 ## Pre-post checklist
 
-- [ ] Video is ≤60s and opens with the result, not a logo
+- [ ] Video is ≤60s (hard cap), opens with the result, not a logo
+- [ ] Overlays burned in on every beat: title card, step counter, progress bar, callouts, live timer; story follows muted
 - [ ] Side-by-side against a GPU provider is visible, with real timers
 - [ ] No API key, email, notification, or personal tab anywhere in frame
 - [ ] Links resolve when logged out
