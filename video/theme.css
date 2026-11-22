@@ -1,0 +1,43 @@
+/* The sightread theme, lifted verbatim from the kit's components/agent/agent.css.
+   Drop these rules in, add "sightread" to THEMES in artifact/agent_film.py, and
+   the kit plays storyboard.json. Kit: github.com/wkasekende/cerebras-video-demos. */
+.ag[data-theme="ember"], .ag[data-theme="bloom"], .ag[data-theme="sightread"] { --pill-dark: #5a5a58; }
+.ag[data-theme="sightread"] {
+  /* the ground sits well below the window on purpose: in the first cut the window
+     (#0f141c) and the ground (#0a0d13) were within a few points of each other and
+     the card dissolved into the background on a 16:9 frame. */
+  --ground: #05070b;  --ground-dim: #04060a;
+  --grid: rgba(4, 124, 252, .55);  --grid-dim: rgba(4, 124, 252, .14);
+  --window: #151e2b;  --card: #151e2b;  --card-2: #1b2534;  --card-3: #202b3c;  --bar: #243043;
+  --bubble: #26344a;  --ink: #f2f6fc;  --ink-2: #c8d1de;  --ink-3: #a3adbd;
+  --line: rgba(255, 255, 255, .24);  --ring: rgba(255, 255, 255, .24);  --accent: #047cfc;  --on-accent: #fff;
+  --title: #5aa9ff;  --chip: #0b2a4d;  --chip-ink: #8cc2ff;
+  --send-idle: #f2f6fc;  --on-send-idle: #121a26;  --stop: #34121c;  --stop-ink: #ff6b7a;
+  --shadow: 0 24px 60px rgba(0, 0, 0, .7), 0 2px 10px rgba(0, 0, 0, .5);
+  --page: #ffffff;  --on-page: #1a1c1f;  --hair: rgba(255, 255, 255, .3);
+  /* a dark window wants a light caption and the tinted assistant card, as ember does */
+  --asst: #202b3c;  --caption: rgba(255, 255, 255, .72);
+}
+/* Type scale, scoped to this theme. Measured on stills: the chat was 12 to 17px at
+   1080p and the claim footnote 21px of grey, both mush on a phone, while a frame
+   stayed 95% empty. The kit keeps type in the components rather than in tokens, so
+   a theme that wants a bigger voice overrides it here, and the measure step refuses
+   if a grown box stops fitting. */
+.ag[data-theme="sightread"] .ag-bubble { font-size: 19px; line-height: 28px; }
+.ag[data-theme="sightread"] .ag-toolrow { font-size: 16px; }
+.ag[data-theme="sightread"] .ag-toolhead { font-size: 18px; }
+.ag[data-theme="sightread"] .ag-claim-f { font-size: 26px; color: var(--ink-2); }
+.ag[data-theme="ember"] .ag-mark-l, .ag[data-theme="bloom"] .ag-mark-l, .ag[data-theme="sightread"] .ag-mark-l, .ag[data-theme="paper"] .ag-mark-d, .ag[data-theme="halftone"] .ag-mark-d { display: none; }
+.ag[data-theme="sightread"] .ag-logo svg path:not([fill]),
+.ag[data-theme="glow"][data-kind="lockup"] .ag-logo svg path:not([fill]),
+.ag[data-theme="tile"][data-kind="lockup"] .ag-logo svg path:not([fill]),
+.ag[data-theme="glow"][data-kind="claim"] .ag-logo svg path:not([fill]),
+.ag[data-theme="tile"][data-kind="claim"] .ag-logo svg path:not([fill]) { fill: var(--ink); }   /* (the intro slide, on the claim's ground, carries the Cerebras logo too) */   /* the house wordmark has no fill: it takes the ink on a dark ground */
+/* SETTING partner="white": a partner's logo is white wherever the ground is dark (ember; glow's claim and lockup). Its mark keeps its colours.
+   Off, the partner's own colours are left alone. The stage carries it as data-partner="white". */
+.ag[data-partner="white"][data-theme="ember"] .ag-logo-partner svg path[fill="black"],
+.ag[data-partner="white"][data-theme="bloom"] .ag-logo-partner svg path[fill="black"],
+.ag[data-partner="white"][data-theme="sightread"] .ag-logo-partner svg path[fill="black"],
+.ag[data-partner="white"][data-theme="glow"][data-kind="lockup"] .ag-logo-partner svg path[fill="black"],
+.ag[data-partner="white"][data-theme="glow"][data-kind="claim"] .ag-logo-partner svg path[fill="black"],
+.ag[data-partner="white"][data-theme="tile"][data-kind="lockup"] .ag-logo-partner svg path[fill="black"],

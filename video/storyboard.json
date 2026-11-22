@@ -1,0 +1,84 @@
+{
+  "slug": "sightread",
+  "why": "Sightread's 60-second demo: ask what a change breaks, answer twice (with the parsed import graph and without it), and count the gap. Every number here was measured on Express with Kimi K3.1 Pro over Cerebras; nothing is invented, and the same model both times.",
+  "model": "Kimi K3.1 Pro",
+  "theme": "sightread",
+  "prompt": "If I change lib/application.js, what breaks?",
+  "words": {
+    "up_to": "With the graph"
+  },
+  "answer": {
+    "lead": "100 files sit downstream of that one file.",
+    "bullets": [
+      [
+        "Direct:",
+        "lib/express.js imports it at line 18"
+      ],
+      [
+        "Downstream:",
+        "99 more, three levels deep"
+      ],
+      [
+        "Blind spot:",
+        "the same model with no graph named 13 of the 100"
+      ]
+    ],
+    "footer_seconds": 1,
+    "footer_tokens": "274"
+  },
+  "claim": {
+    "number": 21,
+    "unit": "of 100 files, named with the graph",
+    "footnote": "*Measured on Express with Kimi K3.1 Pro on Cerebras: 21 of 100 named with the graph in 1.23 s; the same model without it named 13 in 9.75 s."
+  },
+  "scenes": [
+    {
+      "scene": "typing",
+      "ms": 5200
+    },
+    {
+      "scene": "popin",
+      "ms": 7000,
+      "clip_from": 1000
+    },
+    {
+      "scene": "thread",
+      "ms": 12000,
+      "thread": [
+        {
+          "kind": "tool",
+          "text": "Parsed the repository · 142 files, 160 internal imports"
+        },
+        {
+          "kind": "tool",
+          "text": "Resolved lib/application.js · 1 direct, 99 indirect"
+        },
+        {
+          "who": "Sightread",
+          "text": "The list is computed from the import statements, not guessed. Handing it to the model is the whole trick: it answers from evidence instead of rebuilding a hundred-file blast radius from memory."
+        },
+        {
+          "kind": "tool",
+          "text": "Asked the same question again with no graph in the prompt"
+        }
+      ]
+    },
+    {
+      "scene": "answer",
+      "ms": 9000
+    },
+    {
+      "scene": "claim",
+      "ms": 10000
+    },
+    {
+      "scene": "lockup",
+      "ms": 3000
+    }
+  ],
+  "popin": {
+    "video": "video/real-run.mp4",
+    "fit": "cover",
+    "speed": 1
+  }
+}

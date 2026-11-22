@@ -34,8 +34,13 @@ times the output tokens. Every answer streams from Cerebras and the page reports
 its own first-token time.
 
 GitHub Repository: https://github.com/ihateSAS/sightread
-Demo Video: <attach the 60s MP4>
+Demo Video: sightread-demo.mp4, attached, 46 s
 ```
+
+The film is built and sits beside this file: `sightread-demo.mp4`, 46 seconds,
+1920x1080, no key on screen. It types the question, cuts to a capture of the running
+page, then states the counted result. It is a house-style film rather than a screen
+recording start to finish, and the capture inside it is the real app answering.
 
 Discord gets the **demo video attached or linked**, plus the description. Post it in the channel for each track you want considered.
 
@@ -93,6 +98,11 @@ The unaided count swings 1 to 3 on the fallback, so read it off the screen.
 
 The fallback take is faster and its blind spot is wider, because a weaker model
 guesses worse. Do not mix a Kimi sentence with a Qwen frame.
+
+The film quotes the Kimi row exactly: 21 of 100 named with the graph in 1.23s,
+13 named without it in 9.75s. Its capture came from a quiet minute, which is why
+the timer in the film is faster than the congested run in the table above; the
+coverage counts, 21 and 13, are the same in both.
 
 **Model id.** The organizers announce the id as
 `moonshotai-kimi-k3.1-pro-trial`. Our org's catalog briefly listed
@@ -301,7 +311,7 @@ Times move with event-day load, since the trial endpoint is shared: first token
 was 0.9s in a quiet minute and 10s and up in a spike. The coverage count and the
 token counts did not move, so those are the honest numbers.
 
-60 second demo: <video attached>
+60 second demo: attached, sightread-demo.mp4, 46 s
 Code, MIT: https://github.com/ihateSAS/sightread
 
 Built during the Kimi K3.1 Pro hackathon on Cerebras; OpenClaw provider config
