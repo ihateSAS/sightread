@@ -22,7 +22,9 @@ parsed import graph in the prompt, and once with the same model and no graph at
 all. Point it at Express, ask about lib/application.js, and the graph lists 100
 downstream files starting at lib/express.js line 18, while the same model with no
 graph has to work that list out itself. On Kimi K3.1 Pro the unaided run named 13
-of those 100; with the graph it named 21. The pair is the product: computed
+of those 100; with the graph it named 21. If the shared trial queue is long the app
+answers on its qwen fallback instead, which named 1 to 3 unaided and 20 to 21 with
+the graph. The pair is the product: computed
 evidence with clickable file and line citations, the model's answer without that
 evidence, and a count of how much of the graph the unaided run named. Speed is
 load-bearing because every change question is answered twice, and the graph pays
@@ -324,6 +326,9 @@ parsed import graph, once with the same model and no graph. 100 files downstream
 on Express. Unaided, Kimi K3.1 Pro named 13 of them. #KimiOnCerebras
 ```
 
+If the take ended on the fallback chip, swap the last line for
+`Unaided, the model named 1 of them.` and keep everything else.
+
 That fits without a paid account, and it survives a slow take because it quotes
 counts, not milliseconds. Add a time in the reply, from the panel, not from this
 doc. Do not add the repo link to the first post either.
@@ -423,7 +428,8 @@ Everything above this section is checked against the repo as it exists on `main`
 
 ## Pre-post checklist
 
-- [ ] Queue was quiet before recording (`node kimi-queue.mjs`, queue under ~300ms), so seconds on screen are not a spike
+- [ ] Queue was quiet before recording (`node kimi-queue.mjs`), so seconds on screen are not a spike
+- [ ] Take is the kind the chip says: Kimi take if the chip reads Kimi, otherwise a fallback take with the post's last line swapped
 - [ ] Video is ≤60s (hard cap), opens with the result, not a logo
 - [ ] First frame is side by side (console left, impact right) at desktop width, roaming graph visible before Ask, grey dot after
 - [ ] Overlays burned in on every beat: title card, step counter, progress bar, callouts, live timer; story follows muted
@@ -431,7 +437,8 @@ Everything above this section is checked against the repo as it exists on `main`
 - [ ] No API key, email, notification, or personal tab anywhere in frame
 - [ ] Links resolve when logged out
 - [ ] Repo is public and its README accurately describes the OpenClaw fallback and direct-stream demo path
-- [ ] Header chip reads `Kimi K3.1 Pro` and no fallback banner is in frame
+- [ ] Header chip reads `Kimi K3.1 Pro` and no fallback banner is in frame, or the take is openly a fallback one
 - [ ] **Posted on X** with @Cerebras, @Kimi_Moonshot and #KimiOnCerebras; the X post is required
 - [ ] TPS or timing in the post matches the panel in the take, not this document
+- [ ] The coverage number in the post matches the one on screen
 - [ ] Posting from an account that isn't rate-limited or shadowbanned (check with a logged-out search)
