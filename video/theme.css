@@ -1,4 +1,4 @@
-/* The sightread theme, lifted verbatim from the kit's components/agent/agent.css.
+/* The sightread theme, lifted from the kit's components/agent/agent.css.
    Drop these rules in, add "sightread" to THEMES in artifact/agent_film.py, and
    the kit plays storyboard.json. Kit: github.com/wkasekende/cerebras-video-demos. */
 .ag[data-theme="ember"], .ag[data-theme="bloom"], .ag[data-theme="sightread"] { --pill-dark: #5a5a58; }
@@ -41,3 +41,7 @@
 .ag[data-partner="white"][data-theme="glow"][data-kind="lockup"] .ag-logo-partner svg path[fill="black"],
 .ag[data-partner="white"][data-theme="glow"][data-kind="claim"] .ag-logo-partner svg path[fill="black"],
 .ag[data-partner="white"][data-theme="tile"][data-kind="lockup"] .ag-logo-partner svg path[fill="black"],
+
+/* The typed prompt is generated with an inline size, so this one needs !important;
+   it is the line a viewer reads first and it sat smaller than the chrome around it. */
+.ag[data-theme="sightread"] .ag-composer .ag-text { font-size: 44px !important; line-height: 62px !important; }
