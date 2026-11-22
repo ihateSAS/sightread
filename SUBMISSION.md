@@ -17,24 +17,16 @@ Project Name: Sightread
 Team Members: @ihateSAS
 
 Project Description:
-Ask Sightread about a change to a repository and it answers twice: once with the
-parsed import graph in the prompt, and once with the same model and no graph at
-all. Point it at Express, ask about lib/application.js, and the graph lists 100
-downstream files starting at lib/express.js line 18, while the same model with no
-graph has to work that list out itself. On Kimi K3.1 Pro the unaided run named 13
-of those 100; with the graph it named 21. If the shared trial queue is long the app
-answers on its qwen fallback instead, which named 1 to 3 unaided and 20 to 21 with
-the graph. The pair is the product: computed
-evidence with clickable file and line citations, the model's answer without that
-evidence, and a count of how much of the graph the unaided run named. Speed is
-load-bearing because every change question is answered twice, and the graph pays
-for itself: the aided answer finishes sooner than the unaided one while sending
-more prompt, because rebuilding a hundred-file list from memory costs about four
-times the output tokens. Every answer streams from Cerebras and the page reports
-its own first-token time.
+Ask Sightread what a change breaks and it parses the repo's imports before Kimi
+K3.1 Pro on Cerebras says a word. On Express, lib/application.js has 100
+downstream files; the graph lists every one with the line that imports it, and
+Kimi answers from that evidence in 1.23 s. Ask the same model with no graph and it
+takes 9.75 s and names 13 of the 100. Evidence makes the answer 8x faster and
+complete, and every answer cites file and line.
 
 GitHub Repository: https://github.com/ihateSAS/sightread
-Demo Video: sightread-demo.mp4, attached, 46 s
+Demo Video: sightread-demo.mp4, attached, 46 s, with voiceover
+#KimiOnCerebras @Cerebras @Kimi_Moonshot
 ```
 
 The film is built and sits beside this file: `sightread-demo.mp4`, 46 seconds,
@@ -386,7 +378,11 @@ Rules:
   `https://github.com/wkasekende/openclaw-speed-patch`
 - Video goes in `#share-your-demo` by Sun Nov 22, 10:00 AM, with the rate in the
   message text, for example `Speed Bounty entry: 1,234 TPS`.
-- `TPS = (output tokens - 1) / (last token time - first token time)`
+- What the patch reports: the **mean of the per-call rates** for the run, beside
+  a p90. Each call's rate is `usage.completion_tokens / time_info.completion_time`,
+  the server's own decode clock (`generationSpeed()` in
+  `chat-generation-speed.ts`). It is not first-to-last on the client, and it
+  averages calls rather than tokens, so short calls weigh as much as long ones.
 - Public demos use standard OpenClaw, not the patched build. Patch only for the
   bounty measurement.
 
@@ -398,8 +394,12 @@ cerebras/moonshotai-kimi-k3.1-pro-trial` returned the expected reply. OpenClaw
 prep is about 34s per turn and does not count toward TPS, because the clock only
 starts at the first token.
 
-Because TPS is first-token to last-token, it rewards the quiet window, not the
-fast machine. Check `node kimi-queue.mjs` before measuring, and note the rate
+Because the rate is a mean of per-call server speeds, a run is pulled up by its
+shortest calls: a 4-token Kimi call reports near 19,000 tok/s (its decode clock
+reads 0.2ms), while a 1,200-token call reports 271. A real five-gift run that
+browses will average a few hundred. Quote the mean the harness prints, and say
+what the calls were doing, because the number is not comparable across call
+sizes. Check `node kimi-queue.mjs` before measuring, and note the rate
 comes from actual completion tokens.
 
 ---
