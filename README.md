@@ -23,6 +23,16 @@
   <img alt="MIT" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
 
+<p align="center">
+  <img src="docs/built-with.png" width="820" alt="Built with Cerebras, Kimi K3.1 Pro by Moonshot AI, and OpenClaw">
+</p>
+
+<p align="center">
+  <sub>Built with <a href="https://www.cerebras.ai">Cerebras</a> inference ·
+  <a href="https://www.kimi.com">Kimi K3.1 Pro</a> by <a href="https://www.moonshot.ai">Moonshot AI</a> ·
+  <a href="https://github.com/openclaw/openclaw">OpenClaw</a></sub>
+</p>
+
 ![Sightread: ask a question on the left, the computed change impact on the right](docs/app.png)
 
 ## At a glance
