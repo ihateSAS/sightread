@@ -1,11 +1,11 @@
 {
   "slug": "sightread",
-  "why": "Sightread's 60-second demo: ask what a change breaks, answer twice (with the parsed import graph and without it), and count the gap. Every number here was measured on Express with Kimi K3.1 Pro over Cerebras; nothing is invented, and the same model both times.",
+  "why": "Sightread's 60-second demo: ask what a change breaks, answer with the parsed import graph and without it. Every number was measured on Express with Kimi K3.1 Pro on Cerebras; same model both times.",
   "model": "Kimi K3.1 Pro",
   "theme": "sightread",
   "prompt": "If I change lib/application.js, what breaks?",
   "words": {
-    "up_to": "With the graph"
+    "up_to": "Kimi answers"
   },
   "answer": {
     "lead": "100 files sit downstream of that one file.",
@@ -16,20 +16,20 @@
       ],
       [
         "Downstream:",
-        "99 more, three levels deep"
+        "99 more, three levels deep, all listed by the graph"
       ],
       [
-        "Blind spot:",
-        "the same model with no graph named 13 of the 100"
+        "Without the graph:",
+        "the same model named 13 of the 100, in 9.75 s"
       ]
     ],
     "footer_seconds": 1,
     "footer_tokens": "274"
   },
   "claim": {
-    "number": 21,
-    "unit": "of 100 files, named with the graph",
-    "footnote": "*Measured on Express with Kimi K3.1 Pro on Cerebras: 21 of 100 named with the graph in 1.23 s; the same model without it named 13 in 9.75 s."
+    "number": 8,
+    "unit": "times faster when it reads the graph",
+    "footnote": "*Kimi K3.1 Pro on Cerebras, Express repo: 1.23 s with the graph, 9.75 s without. Graph lists all 100 files; the model alone named 13."
   },
   "scenes": [
     {
@@ -47,11 +47,11 @@
       "thread": [
         {
           "kind": "tool",
-          "text": "Parsed the repository · 142 files, 160 internal imports"
+          "text": "Parsed the repository \u00b7 142 files, 160 internal imports"
         },
         {
           "kind": "tool",
-          "text": "Resolved lib/application.js · 1 direct, 99 indirect"
+          "text": "Resolved lib/application.js \u00b7 1 direct, 99 indirect"
         },
         {
           "who": "Sightread",
@@ -80,5 +80,11 @@
     "video": "video/real-run.mp4",
     "fit": "cover",
     "speed": 1
+  },
+  "meter": {
+    "seconds": 1.23,
+    "tokens": 274,
+    "rate": "300 toks/s",
+    "ttft": "1.05 s"
   }
 }

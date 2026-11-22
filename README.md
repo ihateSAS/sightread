@@ -1,8 +1,59 @@
-# Sightread
+<p align="center">
+  <img src="logo/sightread-icon.png" width="96" alt="Sightread logo">
+</p>
 
-**Ask a codebase anything. Change answers cite the file and line evidence.**
+<h1 align="center">Sightread</h1>
 
-Built for the Cerebras × Kimi K3.1 Pro × OpenClaw weekend hackathon, Nov 21–22 2026.
+<p align="center">
+  <b>Ask a repo "what breaks if I change this file?" and get an answer built from evidence.</b><br>
+  Kimi K3.1 Pro on Cerebras, with the parsed import graph in hand, answers in 1.23 s instead of 9.75 s.
+</p>
+
+<p align="center">
+  <a href="sightread-demo.mp4">▶ Watch the 46-second demo</a> ·
+  <a href="#run-it">Run it</a> ·
+  <a href="#the-idea">How it works</a>
+</p>
+
+<p align="center">
+  <img alt="Kimi K3.1 Pro" src="https://img.shields.io/badge/model-Kimi%20K3.1%20Pro-1fbf8f">
+  <img alt="Cerebras" src="https://img.shields.io/badge/inference-Cerebras-f05a28">
+  <img alt="OpenClaw" src="https://img.shields.io/badge/harness-OpenClaw-5865f2">
+  <img alt="No dependencies" src="https://img.shields.io/badge/server-zero%20dependencies-444">
+  <img alt="MIT" src="https://img.shields.io/badge/license-MIT-blue">
+</p>
+
+![Sightread: ask a question on the left, the computed change impact on the right](docs/app.png)
+
+## At a glance
+
+On [Express](https://github.com/expressjs/express), changing `lib/application.js` affects
+**100 files**: one direct importer (`lib/express.js:18`) and 99 more up to three levels
+out. Sightread parses that list from the import statements before the model says a word,
+then asks the same question twice, once with the list and once without it.
+
+| Kimi K3.1 Pro on Cerebras | With the graph | Without the graph |
+|---|---|---|
+| Total time | **1.23 s** | 9.75 s |
+| Output tokens | 274 | 1,829 |
+| Downstream files | the graph panel lists all 100 with file and line; the answer names 21 | the answer names 13 of the 100 |
+
+The page shows both answers side by side and counts the gap, so "the graph helps" is a
+number on screen rather than a claim. Numbers are from one measured run in a quiet minute on
+the shared trial endpoint; [Status](#status) has a congested run too.
+
+<p align="center">
+  <img src="docs/answer.png" width="49%" alt="Kimi's answer with the graph">
+  <img src="docs/claim.png" width="49%" alt="8x faster when it reads the graph">
+</p>
+
+## Team
+
+- **ihateSAS** ([GitHub](https://github.com/ihateSAS)): lead
+- **flowerei** ([GitHub](https://github.com/flowerei))
+- **memoirys** ([GitHub](https://github.com/memoirys))
+
+Built for the Cerebras × Kimi K3.1 Pro × OpenClaw hackathon, Nov 21–22 2026.
 
 ---
 
@@ -181,6 +232,8 @@ openclaw/kimi-cerebras.patch.json5   provider + model config
 openclaw/skills/                repo-read, kimi-speed-lab
 test/*.test.mjs                 node --test suite (28 tests: app, coverage, impact, provider)
 check-cerebras.sh               pre-flight
+docs/                           README screenshots (stills from the demo film)
+video/                          demo film storyboard, theme, narration and voiceover script
 PLAN.md                         the 24h plan and scoring strategy
 SUBMISSION.md                   the Discord/Reddit/X submission copy
 ```
@@ -287,7 +340,8 @@ memory-core is off, and `/api/ask` stops a turn at `SIGHTREAD_DEADLINE_MS`
 rather than waiting out the harness retry ladder. A rate limit arrives as HTTP
 429 with a retry hint, not as a hang or a vague 502.
 
-Not yet proven: `kimi-k3.1-pro` end to end, and the 60s video does not exist yet.
+Not yet proven: the bare `kimi-k3.1-pro` id end to end (this key only lists the trial id).
+The 46-second demo film is `sightread-demo.mp4`; its sources are in `video/`.
 
 ## License
 

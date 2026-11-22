@@ -1,0 +1,9 @@
+[
+ {"at": 300,   "voice": "en-US-AndrewNeural", "text": "One question about a real repo. If I change this file, what breaks?"},
+ {"at": 5400,  "voice": "en-US-AndrewNeural", "text": "Sightread parses the imports first, so Kimi on Cerebras answers from evidence, not memory."},
+ {"at": 12500, "voice": "en-US-AndrewNeural", "text": "A hundred files sit downstream. The graph lists every one, with the line that imports it."},
+ {"at": 19000, "voice": "en-US-AndrewNeural", "text": "Then it asks Kimi again, with no graph, as a baseline."},
+ {"at": 24500, "voice": "en-US-AndrewNeural", "text": "Without the graph, Kimi named thirteen of the hundred, and took nearly ten seconds."},
+ {"at": 33500, "voice": "en-US-AndrewNeural", "text": "With it, one point two seconds. Eight times faster, with the full list on screen."},
+ {"at": 43400, "voice": "en-US-AndrewNeural", "text": "Sightread. Kimi, on Cerebras."}
+]
