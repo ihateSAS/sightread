@@ -123,16 +123,19 @@ Kimi K3.1 Pro on Cerebras is the configured primary, registered as an
 OpenAI-compatible provider in `openclaw/kimi-cerebras.patch.json5`:
 
 - provider `cerebras` → `https://api.cerebras.ai/v1`
-- configured primary `cerebras/kimi-k3.1-pro`
+- configured primary `cerebras/moonshotai-kimi-k3.1-pro-trial`
 - direct-stream chain: Kimi K3.1 Pro first, then `cerebras/qwen-3.8-27b`, then `cerebras/gpt-oss-120b`
 - `reasoning_effort` bounded to `low|medium|high|max` for K3.1 Pro — it rejects `none`
 
-Kimi end-to-end is **pending capacity**: on the current key the provider still
-returns `model_not_found` for `kimi-k3.1-pro`, so the fresh verified run answered
-with `qwen-3.8-27b`. Treat every current speed number as qwen-fallback
-measurements, not Kimi measurements. The page’s thinking selector applies to
-non-qwen models; qwen is forced to reasoning off because it can spend a short
-answer’s budget on hidden reasoning.
+Kimi end-to-end **runs**: `moonshotai-kimi-k3.1-pro-trial` answers, and OpenClaw
+drives it. Bare `kimi-k3.1-pro` and the `-test` suffix do not exist on the current
+key, so use the trial id. The trial endpoint is shared with every team at the
+event, so first token is queue rather than compute: 30 to 80s of queue against
+about 0.6s of work in the bad stretches, under a second when quiet. The first-token
+budget hands a queued turn to the fallback, which is why some published numbers are
+qwen; the page names whichever model answered and says when it fell back. The
+thinking selector applies to non-qwen models; qwen is forced to reasoning off
+because it can spend a short answer’s budget on hidden reasoning.
 
 ## Run it
 

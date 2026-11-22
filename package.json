@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Ask a codebase anything. Change answers cite the file and line evidence.",
+  "description": "Ask a codebase what a change breaks. It answers with the parsed import graph and without it, then counts the gap.",
   "scripts": {
     "start": "node app/server.mjs",
     "start:gateway": "SIGHTREAD_TRANSPORT=gateway node app/server.mjs",

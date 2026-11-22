@@ -1781,7 +1781,7 @@ async function loadRaceState() {
     const same = s.sameModel ? "Same model on both lanes." : "Different models: this compares models, not silicon.";
     const kimi = /kimi/i.test(s.cerebras.model)
       ? ""
-      : ` Kimi K3.1 Pro is pending capacity approval, so this race runs <b>${esc(s.cerebras.model)}</b> on both lanes.`;
+      : ` The Kimi trial queue is long, so this race runs <b>${esc(s.cerebras.model)}</b> on both lanes and keeps the comparison same-model.`;
     b.innerHTML = `Both providers live. <b>${esc(s.cerebras.model)}</b> vs <b>${esc(s.openrouter.model)}</b>. ${same}${kimi}`;
   } else if (s.cerebras.ready && !s.openrouter.ready) {
     b.innerHTML = `Cerebras live (<b>${esc(s.cerebras.model)}</b>). OpenRouter not configured: add <code>OPENROUTER_API_KEY</code> to <code>.env</code> for a live opponent.`;
