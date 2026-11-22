@@ -7,6 +7,8 @@
   "scripts": {
     "start": "node app/server.mjs",
     "start:gateway": "SIGHTREAD_TRANSPORT=gateway node app/server.mjs",
+    "take:kimi": "SIGHTREAD_FIRST_TOKEN_BUDGET_MS=12000 CEREBRAS_RACE_MODEL=moonshotai-kimi-k3.1-pro-trial OPENROUTER_RACE_MODEL=moonshotai/kimi-k3.1-pro node app/server.mjs",
+    "take:fallback": "CEREBRAS_RACE_MODEL=qwen-3.8-27b OPENROUTER_RACE_MODEL=qwen/qwen3.8-27b node app/server.mjs",
     "race": "node race/server.mjs",
     "check": "bash ./check-cerebras.sh",
     "test": "node --test test/*.test.mjs",

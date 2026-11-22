@@ -149,12 +149,15 @@ openclaw gateway restart                         # optional: CLI fallback only
 
 ./check-cerebras.sh                        # key, model inventory, tok/s, one turn
 npm start                                  # http://localhost:8787 (auto-loads .env, Ask + Speed Race)
+npm run take:kimi                          # same, plus a 12s fallback budget and Kimi race lanes
+npm run take:fallback                      # same, but 3s budget and qwen race lanes
 npm test                                   # run server/repo/env unit tests
 ```
 
 With a Cerebras key present, `npm start` streams Ask directly from Cerebras and
 does not need the gateway. The scoped OpenClaw agent config and skills are for
-the CLI/gateway fallback path.
+the CLI/gateway fallback path. The two `take:` scripts exist only so a recording
+does not need `.env` edits mid-session; for the event, use `take:kimi`.
 
 Environment:
 

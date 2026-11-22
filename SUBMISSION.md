@@ -133,26 +133,31 @@ first, never the blind-spot count.
 0. **Kimi is the model the rules name, so the take you want is a Kimi take.**
    The organizers say configure `moonshotai-kimi-k3.1-pro-trial` and OpenClaw, and
    the awards are for this model on this platform. Nothing in the rules forbids a
-   fallback, so a Qwen take is legal, but it is the event's model answering, not a
-   substituted one. Shoot the fallback take only if the queue never clears, and
-   then disclose it.
-   The trial endpoint is shared, so the same take can land in 0.9s or 70s. Run
-   `node kimi-queue.mjs` and wait for `queue` **under about 3000ms**, which is the
-   shipped first-token budget: under it, Kimi answers and stays in frame. Over it,
-   the app hands the turn to qwen and the chip says so, and the trade is a fallback
-   take. If the queue sits at 4 to 10s and you want the Kimi take anyway, raise
-   `SIGHTREAD_FIRST_TOKEN_BUDGET_MS` to `12000` for the take and restart. Do not
-   raise it for a 70s queue; the answer then lands after the video ends.
-0b. **Make the race lanes match the chip.** They ship as the qwen pair right now,
-   because the Kimi trial queue is long and a race held in it would be a
-   three-minute beat. For a Kimi take, set them to the Kimi pair so the race is
-   still the same model on both lanes:
-   `CEREBRAS_RACE_MODEL=moonshotai-kimi-k3.1-pro-trial`,
-   `OPENROUTER_RACE_MODEL=moonshotai/kimi-k3.1-pro` in `.env`, then restart. Never
-   leave one lane Kimi and the other qwen; the panel does say when the lanes
+   fallback, so a Qwen take is legal, but it is a substituted model answering.
+
+   Start the take the matching way, which sets the budget and both race lanes in
+   one go:
+
+   - `npm run take:kimi` for the take you want. Budget 12s, both race lanes on the
+     Kimi ids.
+   - `npm run take:fallback` only if the queue never clears. Budget 3s, both race
+     lanes on the qwen ids, so the race stays same-model either way.
+
+   Never leave one lane Kimi and the other qwen; the panel does say when the lanes
    differ, but a mixed race proves nothing about either.
-1. `npm start` (it loads `.env` and streams straight from Cerebras; the gateway
-   is no longer on the Ask path). Open `http://localhost:8787`, click the header
+0b. **Watch the bucket before you commit to the take.** `node kimi-queue.mjs`
+   prints queue, compute and rate every 90 seconds. The trial bucket both queues
+   and refuses: a `429` makes the app fall back instantly, while a queue over the
+   budget makes it wait and then fall back. Roughly one sample in five was a 429 in
+   the last hours, so a Kimi take is normally a retake or two, not one shot. Take
+   the retake; it is 60 seconds.
+   Shoot only when the chip reads `Kimi K3.1 Pro` with no fallback banner. If the
+   queue sits at 1 to 10s, Kimi fits the 12s budget from `take:kimi`. Above about
+   15s of sustained queue, stop waiting and shoot the fallback take instead, then
+   swap the post's last line (see the X section) and do not say Kimi.
+1. **Start the take you picked:** `npm run take:kimi` (preferred), or
+   `npm run take:fallback`. Either streams straight from Cerebras; the gateway is
+   not on the Ask path. Open `http://localhost:8787`, click the header
    chip, and confirm it reads `Kimi K3.1 Pro cerebras` with no fallback banner.
    **The chip, not the clock, decides what you may claim.** If it reads
    `Qwen 3.8 27B` while the queue is still long, the app did the right thing and
