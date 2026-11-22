@@ -83,12 +83,13 @@ Whichever chip is in the finished take, quote that run:
 
 | Take | Aided | Unaided | Coverage |
 |---|---|---|---|
-| Kimi chip | 7.12s, 422 out | 11.05s, 1,605 out | 21 vs 13 of 100 |
+| Kimi chip | 1.05s first token, 1.23s total, 274 out | 6.68s first token, 9.75s total, 1,829 out | 21 vs 13 of 100 |
 | Qwen fallback chip | 3.23s, 154 out | 1.14s, 998 out | 20 vs 1 of 100 |
 
-The fallback take pays the 3s budget as visible first-token time, because the
-abandoned Kimi attempt is part of the turn. The unaided count swings 1 to 3 across
-runs, so read it off the screen.
+The Kimi row is the take worth having: the graph turns an 1,829-token guess into a
+274-token list and finishes 8x sooner. The fallback take pays the 3s budget as
+visible first-token time, because the abandoned Kimi attempt is part of the turn.
+The unaided count swings 1 to 3 on the fallback, so read it off the screen.
 
 The fallback take is faster and its blind spot is wider, because a weaker model
 guesses worse. Do not mix a Kimi sentence with a Qwen frame.
