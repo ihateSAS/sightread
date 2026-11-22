@@ -74,9 +74,18 @@ queue, not the model, driving first token:
 | congested | 14,517ms | 1,209ms | 301 tok/s |
 | quiet | 10ms | 471ms | 353 tok/s |
 
-So first token can land under 1s or over 12s with no code change. Compute sits
-near 300 tok/s under the event load, against 1,746 tok/s for `gpt-oss-120b` on the
-same box. **Check the queue before recording** (step 1 of the pre-flight) and let
+So first token can land under 1s or over 12s with no code change. Decode holds
+near 300 tok/s whatever the queue does, and has held 271 to 353 across a dozen
+runs; the same ratio on `gpt-oss-120b`, same key, same minute, is 1,836 to 2,236.
+Reproduce both with `node bench/tps.mjs`, which divides by the provider's own
+`time_info.completion_time`, the same ratio the speed patch computes.
+
+**Kimi does not reach 2,000 tok/s on this endpoint, and cannot be made to.** It is
+a large model served at 271-353 tok/s of decode. Numbers near 2,000 belong to the
+smaller `gpt-oss-120b` on the same box, so a 2,000 claim made without naming the
+model is a claim about gpt-oss, not Kimi. The client-side window is lower still,
+around 200 tok/s, because the server finishes before delivery catches up; quote
+the server ratio only if the maker of the number did. **Check the queue before recording** (step 1 of the pre-flight) and let
 the recorder quote the numbers on screen rather than these. Quote a total only
 when the run was quiet.
 

@@ -148,6 +148,7 @@ mkdir -p skills && cp -R openclaw/skills/repo-read skills/repo-read
 openclaw gateway restart                         # optional: CLI fallback only
 
 ./check-cerebras.sh                        # key, model inventory, tok/s, one turn
+node bench/tps.mjs                         # decode tok/s per model, server clock, 3 calls each
 npm start                                  # http://localhost:8787 (auto-loads .env, Ask + Speed Race)
 npm run take:kimi                          # same, plus a 12s fallback budget and Kimi race lanes
 npm run take:fallback                      # same, but 3s budget and qwen race lanes
@@ -220,9 +221,11 @@ load-bearing because every change question is answered twice.
 **Time is a range, and the trial endpoint is shared.** Nearly all of the first
 token is queue, not compute: the provider's own `time_info` showed a 30.2s queue
 beside a 0.336s completion in a spike, and a 10ms queue beside a 471ms completion
-when quiet. Compute sits near 300 tok/s under event load against 1,746 tok/s for
-`gpt-oss-120b` on the same box. Run `node kimi-queue.mjs` before recording and
-quote what the panel measured, never a number from this file.
+when quiet. Decode sits near 300 tok/s under event load, against 1,836 to 2,236
+tok/s for `gpt-oss-120b` on the same box and key, measured with `node
+bench/tps.mjs`. Kimi is a big model at 300, not 2,000; 2,000 belongs to gpt-oss.
+Run `node kimi-queue.mjs` before recording and quote what the panel measured,
+never a number from this file.
 
 Three different numbers live in this project, and they measure different things:
 
@@ -232,6 +235,7 @@ Three different numbers live in this project, and they measure different things:
 | Speed Race panel, OpenRouter lane | the same 600 tokens, same model | 565ms first token, 10.82s total, 56 tok/s wall (qwen) |
 | Ask panel, aided turn | graph parsed locally, then the first streamed chunk | 6.78s first token, 7.12s total (Kimi) |
 | Ask panel, unaided turn | same model, same question, no graph | 9.10s first token, 11.05s total (Kimi) |
+| `bench/tps.mjs` | one 2,000-token call, divided by the server's decode clock | 271-353 tok/s (Kimi), 1,836-2,236 tok/s (gpt-oss-120b) |
 
 Treat these as one fresh run each, not a promise for every run. The race rows are
 the qwen pair, measured Nov 21; the ask rows are Kimi. Race on Kimi instead by
