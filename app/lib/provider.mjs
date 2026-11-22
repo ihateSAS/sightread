@@ -61,34 +61,52 @@ export async function streamProvider({ model, thinking, prompt, onChunk, timeout
           }, budgetMs)
         : null;
     let res;
-    try {
-      res = await fetch(url(), {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-        body: JSON.stringify({
-          model: candidate,
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 4096,
-          stream: true,
-          stream_options: { include_usage: true },
-          ...(effort ? { reasoning_effort: effort } : {}),
-        }),
-      });
-    } catch (e) {
-      clearTimeout(deadline);
-      if (budgetTimer) clearTimeout(budgetTimer);
-      lastError = `${candidate}: ${e.message}`;
-      continue;
-    }
+    let authFailed = false;
+    // A 429 is a burst refusal, not a capacity verdict: the same model usually
+    // answers a few hundred ms later, and treating it as a dead model burns the
+    // turn on the fallback for no reason. One retry, inside the same budget.
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        res = await fetch(url(), {
+          method: "POST",
+          signal: controller.signal,
+          headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+          body: JSON.stringify({
+            model: candidate,
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 4096,
+            stream: true,
+            stream_options: { include_usage: true },
+            ...(effort ? { reasoning_effort: effort } : {}),
+          }),
+        });
+      } catch (e) {
+        clearTimeout(deadline);
+        if (budgetTimer) clearTimeout(budgetTimer);
+        lastError = `${candidate}: ${e.message}`;
+        res = null;
+        break;
+      }
 
-    if (!res.ok || !res.body) {
-      clearTimeout(deadline);
-      if (budgetTimer) clearTimeout(budgetTimer);
+      if (res.ok && res.body) break;
       const body = await res.text().catch(() => "");
       lastError = `${candidate}: HTTP ${res.status} ${body.slice(0, 200)}`;
       // A wrong key fails identically for every model, so stop there.
-      if (res.status === 401 || res.status === 403) break;
+      if (res.status === 401 || res.status === 403) {
+        authFailed = true;
+        break;
+      }
+      if (res.status === 429 && attempt < 1) {
+        await new Promise((r) => setTimeout(r, 400));
+        continue;
+      }
+      break;
+    }
+
+    if (!res || !res.ok || !res.body) {
+      clearTimeout(deadline);
+      if (budgetTimer) clearTimeout(budgetTimer);
+      if (authFailed) break;
       continue;
     }
 

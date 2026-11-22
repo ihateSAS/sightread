@@ -147,10 +147,10 @@ first, never the blind-spot count.
    differ, but a mixed race proves nothing about either.
 0b. **Watch the bucket before you commit to the take.** `node kimi-queue.mjs`
    prints queue, compute and rate every 90 seconds. The trial bucket both queues
-   and refuses: a `429` makes the app fall back instantly, while a queue over the
-   budget makes it wait and then fall back. Roughly one sample in five was a 429 in
-   the last hours, so a Kimi take is normally a retake or two, not one shot. Take
-   the retake; it is 60 seconds.
+   and refuses. A `429` is retried once on the same model after 400ms before the
+   fallback wins, so a refusal usually still ends on Kimi about half a second later;
+   a queue over the budget waits and then falls back. Neither is one shot: expect to
+   retake. Take the retake, it is 60 seconds.
    Shoot only when the chip reads `Kimi K3.1 Pro` with no fallback banner. If the
    queue sits at 1 to 10s, Kimi fits the 12s budget from `take:kimi`. Above about
    15s of sustained queue, stop waiting and shoot the fallback take instead, then

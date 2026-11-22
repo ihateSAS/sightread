@@ -238,3 +238,36 @@ test("a queued primary is abandoned for the next model instead of waited on", as
   // still shows up instead of the fallback's own fast start.
   assert.ok(out.phases.promptToFirstChunkMs >= 300, "first token is turn-relative");
 });
+
+test("a 429 is retried on the same model instead of dropping to the fallback", async (t) => {
+  let calls = 0;
+  const provider = await startFakeProvider(({ body }) => {
+    if (body.model === "kimi-k3.1-pro") {
+      calls += 1;
+      if (calls === 1) return { status: 429, body: { message: "high traffic" } };
+      return { stream: contentStream("answered after retry") };
+    }
+    return { stream: contentStream("fallback") };
+  });
+  t.after(() => provider.close());
+  useProviderEnv(t, provider.url);
+
+  const out = await streamProvider({ model: "cerebras/kimi-k3.1-pro", prompt: "hi", timeoutMs: 10_000 });
+  assert.equal(out.text, "answered after retry");
+  assert.equal(out.model, "kimi-k3.1-pro", "same model answered, no fallback");
+  assert.equal(calls, 2);
+});
+
+test("a 429 that persists still falls through after one retry", async (t) => {
+  const provider = await startFakeProvider(({ body }) =>
+    body.model === "kimi-k3.1-pro"
+      ? { status: 429, body: { message: "high traffic" } }
+      : { stream: contentStream("fallback answered") }
+  );
+  t.after(() => provider.close());
+  useProviderEnv(t, provider.url);
+
+  const out = await streamProvider({ model: "cerebras/kimi-k3.1-pro", prompt: "hi", timeoutMs: 10_000 });
+  assert.equal(out.model, "qwen-3.8-27b");
+  assert.equal(provider.requests.filter((r) => r.body.model === "kimi-k3.1-pro").length, 2);
+});
