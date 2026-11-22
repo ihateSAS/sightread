@@ -223,10 +223,13 @@ async function cerebrasModelIds() {
   return modelListCache.ids;
 }
 
+// The model a turn should ASK FOR, which is the configured one when the provider
+// lists it. This deliberately ignores what last answered: the chain already falls
+// back on its own, and pinning the asks to a fallback meant Kimi was never retried
+// after a single 429, so it could never come back. Health reports what actually
+// answered instead (see /api/health).
 async function effectiveModel(cfg) {
   if (!/^cerebras\//i.test(cfg.model)) return cfg.model;
-  // Observed beats predicted: once a turn has answered, its model is the truth.
-  if (lastAnsweredModel) return lastAnsweredModel;
   const ids = await cerebrasModelIds();
   if (!Array.isArray(ids)) return cfg.model;
   const leaf = String(cfg.model).split("/").pop();
@@ -633,11 +636,15 @@ export function createAppServer({
       }
 
       if (req.method === "GET" && url.pathname === "/api/health") {
-        const [v, gatewayUp, answerModel] = await Promise.all([
+        // Observed beats predicted for the label: once a turn has answered, its
+        // model is the truth. A turn that has not run yet falls back to the model
+        // the provider lists, so the chip is never blank.
+        const [v, gatewayUp, predicted] = await Promise.all([
           runCommand(cfg.agentBinary, ["--version"]),
           isGatewayReachable(cfg.gatewayPort),
           effectiveModel(cfg),
         ]);
+        const answerModel = lastAnsweredModel || predicted;
         const effectiveTransport =
           cfg.transport === "auto" ? (gatewayUp ? "gateway" : "exec") : cfg.transport;
         return json(res, 200, {
